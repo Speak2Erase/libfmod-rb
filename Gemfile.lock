@@ -1,0 +1,58 @@
+PATH
+  remote: .
+  specs:
+    libfmod (2.02.603)
+      rake (> 1)
+      rb_sys (~> 0.9.37)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ast (2.4.2)
+    json (2.6.2)
+    language_server-protocol (3.17.0.1)
+    parallel (1.22.1)
+    parser (3.1.2.1)
+      ast (~> 2.4.1)
+    prettier_print (1.1.0)
+    rainbow (3.1.1)
+    rake (13.0.6)
+    rake-compiler (1.2.0)
+      rake
+    rb_sys (0.9.38)
+    regexp_parser (2.6.0)
+    rexml (3.2.5)
+    rubocop (1.38.0)
+      json (~> 2.3)
+      parallel (~> 1.10)
+      parser (>= 3.1.2.1)
+      rainbow (>= 2.2.2, < 4.0)
+      regexp_parser (>= 1.8, < 3.0)
+      rexml (>= 3.2.5, < 4.0)
+      rubocop-ast (>= 1.23.0, < 2.0)
+      ruby-progressbar (~> 1.7)
+      unicode-display_width (>= 1.4.0, < 3.0)
+    rubocop-ast (1.23.0)
+      parser (>= 3.1.1.0)
+    ruby-lsp (0.3.5)
+      language_server-protocol (~> 3.17.0)
+      sorbet-runtime
+      syntax_tree (>= 4.0.2)
+    ruby-progressbar (1.11.0)
+    sorbet-runtime (0.5.10549)
+    syntax_tree (5.0.1)
+      prettier_print (>= 1.1.0)
+    unicode-display_width (2.3.0)
+
+PLATFORMS
+  x86_64-linux
+
+DEPENDENCIES
+  libfmod!
+  rake (~> 13.0)
+  rake-compiler
+  rubocop (~> 1.21)
+  ruby-lsp (~> 0.3.5)
+
+BUNDLED WITH
+   2.3.25

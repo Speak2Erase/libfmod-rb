@@ -1,0 +1,10 @@
+module FMOD
+  module Core
+  end
+
+  module Studio
+  end
+
+  module Enum
+  end
+end
