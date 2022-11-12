@@ -21,7 +21,7 @@ macro_rules! bindable_enum {
         paste::paste! {
             #[magnus::wrap(class = "FMOD::Enum::" $name "", free_immediatly, size)]
             #[derive(Clone, Copy, PartialEq)]
-            struct $name(libfmod::$name);
+            pub(crate) struct $name(libfmod::$name);
         }
 
         impl From<$name> for libfmod::$name {
@@ -67,6 +67,22 @@ macro_rules! bindable_enum {
                 Ok(())
             }
         }
+
+        impl crate::wrap::WrapFMOD for libfmod::$name {
+            type Output = $name;
+
+            fn wrap_fmod(self) -> Self::Output {
+                $name(self)
+            }
+        }
+
+        impl crate::wrap::UnwrapFMOD for $name {
+            type Output = libfmod::$name;
+
+            fn unwrap_fmod(self) -> Self::Output {
+                self.0
+            }
+        }
     };
 }
 
@@ -76,28 +92,62 @@ macro_rules! opaque_struct {
         paste::paste! {
             #[magnus::wrap(class = "FMOD::" $mod "::" $rb_name "", free_immediatly, size)]
             #[derive(Clone, Copy)]
-            struct $name(libfmod::$name);
+            pub(crate) struct $name(libfmod::$name);
+        }
+
+
+        impl crate::wrap::WrapFMOD for libfmod::$name {
+            type Output = $name;
+
+            fn wrap_fmod(self) -> Self::Output {
+                $name(self)
+            }
+        }
+
+        impl crate::wrap::UnwrapFMOD for $name {
+            type Output = libfmod::$name;
+
+            fn unwrap_fmod(self) -> Self::Output {
+                self.0
+            }
         }
     };
 }
 
 #[macro_export]
 macro_rules! opaque_struct_method {
-    () => {
-        
+    ($struct_name:ident, $fn_name:ident $(, $result:ty)?; $( ( $arg:ty $(: $ref:ident)? ) ),*) => {
+        paste::paste!{
+        #[allow(unused_imports)]
+            fn $fn_name(
+                &self, 
+                $( [<arg_ ${index()}>]: $arg, )*
+            ) $( -> $result )? {
+                use crate::wrap::WrapFMOD;
+                use crate::wrap::UnwrapFMOD;
+
+                self.0.$fn_name($( $( ${ignore(ref)} &)?[<arg_ ${index()}>].unwrap_fmod(), ${ignore(arg)} )*).wrap_fmod()
+            }
+        }
     };
 }
 
 #[macro_export]
 macro_rules! opaque_struct_function {
-    () => {
-        
+    ($struct_name:ident, $fn_name:ident $(, $result:ty)?;) => {
+        #[allow(unused_imports)]
+        fn $fn_name() $( -> $result )? {
+            use crate::wrap::WrapFMOD;
+            use crate::wrap::UnwrapFMOD;
+
+            libfmod::$struct_name::$fn_name().wrap_fmod()
+        }
     };
 }
 
 #[macro_export]
 macro_rules! bind_fn {
-    ($name:ident, $rb_name:literal $($fn_name:ident, $fn_type:ident, $fn_args:literal),*) => {
+    ($name:ident, $rb_name:literal; $(($fn_name:ident, $fn_type:ident, $fn_args:literal)),*) => {
         #[allow(unused_imports, unused_variables)]
         fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
             use magnus::Object;

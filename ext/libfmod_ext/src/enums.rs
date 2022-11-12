@@ -18,10 +18,12 @@
 use crate::bindable_enum;
 
 bindable_enum!(ChannelControlCallbackType, End, VirtualVoice, SyncPoint, Occlusion, Max);
+bindable_enum!(LoadMemoryMode, Memory, MemoryPoint);
 
 pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
 
     ChannelControlCallbackType::bind(module)?;
+    LoadMemoryMode::bind(module)?;
 
     Ok(())
 }

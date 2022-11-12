@@ -12,3 +12,5 @@ gem "rake-compiler"
 gem "rubocop", "~> 1.21"
 
 gem "ruby-lsp", "~> 0.3.5", :group => :development
+
+gem "rspec"

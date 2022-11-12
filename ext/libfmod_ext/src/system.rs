@@ -17,17 +17,42 @@
 
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_method, opaque_struct_function};
+use crate::event::EventDescription;
+use crate::bank::Bank;
+use crate::enums::LoadMemoryMode;
 
 opaque_struct!(Studio, "Studio", "System");
 
 impl Studio {
-    fn create() -> Self {
-        Self(libfmod::Studio::create().unwrap())
+    opaque_struct_function!(Studio, create, Result<Self, magnus::Error>;);
+    opaque_struct_method!(Studio, is_valid, Result<(), magnus::Error>;);
+    
+    fn init(&self, maxchannels: i32, studioflags: std::ffi::c_uint, flags: std::ffi::c_uint) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        self.0.initialize(maxchannels, studioflags, flags, None).wrap_fmod()
     }
 
+    opaque_struct_method!(Studio, update, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, release, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, get_core_system, Result<System, magnus::Error>;);
+    opaque_struct_method!(Studio, get_event, Result<EventDescription, magnus::Error>; (String: ref));
+    opaque_struct_method!(Studio, get_bank, Result<Bank, magnus::Error>; (String: ref));
+    opaque_struct_method!(Studio, load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(Studio, load_bank_memory, Result<Bank, magnus::Error>; (String: ref), (i32), (&LoadMemoryMode), (std::ffi::c_uint));
+
     bind_fn! {
-        Studio, "System"
-        create, singleton_method, 0
+        Studio, "System";
+        (create, singleton_method, 0),
+        (is_valid, method, 0),
+        (init, method, 3),
+        (update, method, 0),
+        (release, method, 0),
+        (get_core_system, method, 0),
+        (get_event, method, 1),
+        (get_bank, method, 1),
+        (load_bank_file, method, 2),
+        (load_bank_memory, method, 4)
     }
 }
 
@@ -35,7 +60,7 @@ opaque_struct!(System, "Core", "System");
 
 impl System {
     bind_fn! {
-        System, "System"
+        System, "System";
     }
 }
 
