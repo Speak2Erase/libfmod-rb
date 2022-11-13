@@ -27,10 +27,10 @@ describe FMOD::Studio::System do
       end
     end
 
-    # Broken bindings expect UTF-8 string.
+    # Broken function (expects a UTF-8 string)
     # describe "load_bank_memory" do
     #   it "loads banks from memory" do
-    #     bank_data = File.read("spec/media/Master.bank")
+    #     bank_data = File.read("spec/media/Master.bank").bytes
     #     expect(@system.load_bank_memory(bank_data, bank_data.length, FMOD::Enum::LoadMemoryMode::Memory, 0))
     #   end
     # end

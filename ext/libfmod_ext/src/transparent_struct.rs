@@ -15,20 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-#[allow(unused_imports)]
-use crate::{bind_fn, opaque_struct, opaque_struct_method, opaque_struct_function};
+use crate::transparent_struct;
 
-opaque_struct!(Bank, "Studio", "Bank");
-
-impl Bank {
-    opaque_struct_method!(Bank, get_id, Result<magnus::RStruct, magnus::Error>;);
-    
-    bind_fn! {
-        Bank, "Bank";
-        (get_id, method, 0)
-    }
-}
+transparent_struct!(Guid; [data_1, data_2, data_3, data_4]);
 
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
-    Bank::bind(module)
+    let module = module.define_module("Struct")?;
+
+    bind_guid(module)
 }

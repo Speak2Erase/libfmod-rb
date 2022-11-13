@@ -37,9 +37,9 @@ macro_rules! bindable_enum {
         }
 
         impl $name {
-            // FIXME: Make into Result<Self, libfmod::Error>
-            fn new(e: std::ffi::c_int) -> Self{
-                Self(libfmod::$name::from(e).unwrap())
+            fn new(e: std::ffi::c_int) -> Result<Self, magnus::Error> {
+                use crate::wrap::WrapFMOD;
+                libfmod::$name::from(e).map(|e| Self(e)).map_err(|e| e.wrap_fmod())
             }
 
             fn to_i(&self) -> std::ffi::c_int {
@@ -68,18 +68,14 @@ macro_rules! bindable_enum {
             }
         }
 
-        impl crate::wrap::WrapFMOD for libfmod::$name {
-            type Output = $name;
-
-            fn wrap_fmod(self) -> Self::Output {
+        impl crate::wrap::WrapFMOD<$name> for libfmod::$name {
+            fn wrap_fmod(self) -> $name {
                 $name(self)
             }
         }
 
-        impl crate::wrap::UnwrapFMOD for $name {
-            type Output = libfmod::$name;
-
-            fn unwrap_fmod(self) -> Self::Output {
+        impl crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
+            fn unwrap_fmod(self) -> libfmod::$name {
                 self.0
             }
         }
@@ -95,19 +91,20 @@ macro_rules! opaque_struct {
             pub(crate) struct $name(libfmod::$name);
         }
 
+        impl PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.as_mut_ptr() == other.0.as_mut_ptr()
+            }
+        }
 
-        impl crate::wrap::WrapFMOD for libfmod::$name {
-            type Output = $name;
-
-            fn wrap_fmod(self) -> Self::Output {
+        impl crate::wrap::WrapFMOD<$name> for libfmod::$name {
+            fn wrap_fmod(self) -> $name {
                 $name(self)
             }
         }
 
-        impl crate::wrap::UnwrapFMOD for $name {
-            type Output = libfmod::$name;
-
-            fn unwrap_fmod(self) -> Self::Output {
+        impl crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
+            fn unwrap_fmod(self) -> libfmod::$name {
                 self.0
             }
         }
@@ -118,7 +115,7 @@ macro_rules! opaque_struct {
 macro_rules! opaque_struct_method {
     ($struct_name:ident, $fn_name:ident $(, $result:ty)?; $( ( $arg:ty $(: $ref:ident)? ) ),*) => {
         paste::paste!{
-        #[allow(unused_imports)]
+            #[allow(unused_imports)]
             fn $fn_name(
                 &self, 
                 $( [<arg_ ${index()}>]: $arg, )*
@@ -161,6 +158,7 @@ macro_rules! bind_fn {
                     class.[<define_ $fn_type>](stringify!($fn_name), $fn_type!($name::$fn_name, $fn_args))?;
                 }
             )*
+            class.define_method("==", magnus::method!($name::eq, 1))?;
 
             Ok(())
         }
@@ -169,7 +167,50 @@ macro_rules! bind_fn {
 
 #[macro_export]
 macro_rules! transparent_struct {
-    () => {
+    ($name:ident; [$($member:ident),*]) => {
+        impl crate::wrap::UnwrapFMOD<libfmod::$name> for magnus::RStruct {
+            fn unwrap_fmod(self) -> libfmod::$name {
+                libfmod::$name {
+                    $(
+                        $member: self.aref(stringify!($member)).unwrap(),
+                    )*
+                }
+            }
+        }
+
+        impl crate::wrap::WrapFMOD<magnus::RStruct> for libfmod::$name {
+            fn wrap_fmod(self) -> magnus::RStruct {
+                use magnus::{Module, RModule, RClass};
+
+                let rstruct = magnus::RStruct::from_value(
+                    magnus::class::object()
+                        .const_get::<_, RModule>("FMOD")
+                        .unwrap()
+                        .const_get::<_, RModule>("Struct")
+                        .unwrap()
+                        .const_get::<_, RClass>(stringify!($name))
+                        .unwrap()
+                        .new_instance(($( self.$member.wrap_fmod(), )*))
+                        .unwrap()
+                )
+                .unwrap();
+
+                rstruct
+            }
+        }
+
+        paste::paste! {
+            fn [<bind_ $name:lower>](module: impl magnus::Module) -> Result<(), magnus::Error> {
+                module.const_set(stringify!($name),
+                    magnus::r_struct::define_struct(
+                        Some(stringify!($name)), 
+                        (
+                            $( stringify!($member), )*
+                        )
+                    )?
+                )
+            }
+        }
         
     };
 }

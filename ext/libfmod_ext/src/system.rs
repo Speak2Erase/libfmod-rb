@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
+use magnus::RStruct;
+
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_method, opaque_struct_function};
 use crate::event::EventDescription;
@@ -40,6 +42,7 @@ impl Studio {
     opaque_struct_method!(Studio, get_bank, Result<Bank, magnus::Error>; (String: ref));
     opaque_struct_method!(Studio, load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
     opaque_struct_method!(Studio, load_bank_memory, Result<Bank, magnus::Error>; (String: ref), (i32), (&LoadMemoryMode), (std::ffi::c_uint));
+    opaque_struct_method!(Studio, get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
 
     bind_fn! {
         Studio, "System";
@@ -52,7 +55,8 @@ impl Studio {
         (get_event, method, 1),
         (get_bank, method, 1),
         (load_bank_file, method, 2),
-        (load_bank_memory, method, 4)
+        (load_bank_memory, method, 4),
+        (get_bank_by_id, method, 1)
     }
 }
 

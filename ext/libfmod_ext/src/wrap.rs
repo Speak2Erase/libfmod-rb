@@ -15,75 +15,83 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-pub(crate) trait UnwrapFMOD {
-    type Output;
-
-    fn unwrap_fmod(self) -> Self::Output;
+pub(crate) trait UnwrapFMOD<T> {
+    fn unwrap_fmod(self) -> T;
 }
 
-impl UnwrapFMOD for String {
-    type Output = String;
-
-    fn unwrap_fmod(self) -> Self::Output {
+impl UnwrapFMOD<String> for String {
+    fn unwrap_fmod(self) -> String {
         self
     }
 }
 
-impl UnwrapFMOD for std::ffi::c_uint {
-    type Output = Self;
-
-    fn unwrap_fmod(self) -> Self::Output {
+impl UnwrapFMOD<std::ffi::c_uint> for std::ffi::c_uint {
+    fn unwrap_fmod(self) -> std::ffi::c_uint {
         self
     }
 }
 
-impl UnwrapFMOD for i32 {
-    type Output = Self;
-
-    fn unwrap_fmod(self) -> Self::Output {
+impl UnwrapFMOD<i32> for i32 {
+    fn unwrap_fmod(self) -> i32 {
         self
     }
 }
 
-pub(crate) trait WrapFMOD {
-    type Output;
-
-    fn wrap_fmod(self) -> Self::Output;
+pub(crate) trait WrapFMOD<T> {
+    fn wrap_fmod(self) -> T;
 }
 
-impl<T, E> WrapFMOD for Result<T, E> 
-where T: WrapFMOD, E: WrapFMOD
-{    
-    type Output = Result<T::Output, E::Output>;
-
-    fn wrap_fmod(self) -> Self::Output {
-        self.map(WrapFMOD::wrap_fmod).map_err(WrapFMOD::wrap_fmod)
-    }
-}
-
-impl<T> WrapFMOD for Option<T> 
-where T: WrapFMOD
+// Thank YOU so much Bruh#1794!!!
+//
+// https://discord.com/channels/273534239310479360/1041444308018016306/1041448745994293300
+impl<T, TWrap> WrapFMOD<Option<TWrap>> for Option<T>
+where
+    T: WrapFMOD<TWrap>,
 {
-    type Output = Option<T::Output>;
-
-    fn wrap_fmod(self) -> Self::Output {
+    fn wrap_fmod(self) -> Option<TWrap> {
         self.map(WrapFMOD::wrap_fmod)
     }
 }
 
-impl WrapFMOD for () {
-    type Output = ();
-    
-    fn wrap_fmod(self) -> Self::Output {
+impl<T, TWrap, E, EWrap> WrapFMOD<Result<TWrap, EWrap>> for Result<T, E>
+where
+    T: WrapFMOD<TWrap>,
+    E: WrapFMOD<EWrap>,
+{
+    fn wrap_fmod(self) -> Result<TWrap, EWrap> {
+        self.map(WrapFMOD::wrap_fmod).map_err(WrapFMOD::wrap_fmod)
+    }
+}
+
+// TODO: Auto impl for TryConvert
+
+impl WrapFMOD<()> for () {
+    fn wrap_fmod(self) -> () {
         ()
     }
 }
 
-/// FIXME: Make this behave differently
-impl WrapFMOD for libfmod::Error {
-    type Output = magnus::Error;
+impl WrapFMOD<u32> for u32 {
+    fn wrap_fmod(self) -> u32 {
+        self
+    }
+}
 
-    fn wrap_fmod(self) -> Self::Output {
+impl WrapFMOD<u16> for u16 {
+    fn wrap_fmod(self) -> u16 {
+        self
+    }
+}
+
+impl<T, const N: usize> WrapFMOD<Vec<T>> for [T; N] {
+    fn wrap_fmod(self) -> Vec<T> {
+        Vec::from(self)
+    }
+}
+
+/// FIXME: Make this behave differently
+impl WrapFMOD<magnus::Error> for libfmod::Error {
+    fn wrap_fmod(self) -> magnus::Error {
         magnus::Error::runtime_error(match self {
             Self::Fmod { function, code, message } => format!("{function} error E{code}: {message}"),
             Self::EnumBindgen { enumeration, value } => format!("Invalid variant for enum {enumeration}: {value}"),

@@ -1,5 +1,6 @@
 #![warn(rust_2018_idioms, clippy::all)]
 #![feature(macro_metavar_expr)]
+#![feature(associated_type_defaults)]
 
 use magnus::Module;
 
@@ -8,6 +9,7 @@ mod system;
 mod event;
 mod bank;
 mod wrap;
+mod transparent_struct;
 
 #[macro_use]
 mod macros;
@@ -25,6 +27,7 @@ fn init() -> Result<(), magnus::Error> {
     bank::bind(studio)?;
     event::bind(studio)?;
     enums::bind_enums(enums)?;
+    transparent_struct::bind(top)?;
 
     Ok(())
 }
