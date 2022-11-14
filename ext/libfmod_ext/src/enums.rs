@@ -19,11 +19,13 @@ use crate::bindable_enum;
 
 bindable_enum!(ChannelControlCallbackType, End, VirtualVoice, SyncPoint, Occlusion, Max);
 bindable_enum!(LoadMemoryMode, Memory, MemoryPoint);
+bindable_enum!(LoadingState, Unloading, Unloaded, Loading, Loaded, Error);
 
 pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
 
     ChannelControlCallbackType::bind(module)?;
     LoadMemoryMode::bind(module)?;
+    LoadingState::bind(module)?;
 
     Ok(())
 }

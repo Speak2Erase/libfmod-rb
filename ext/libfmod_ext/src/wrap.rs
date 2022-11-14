@@ -19,26 +19,89 @@ pub(crate) trait UnwrapFMOD<T> {
     fn unwrap_fmod(self) -> T;
 }
 
-impl UnwrapFMOD<String> for String {
-    fn unwrap_fmod(self) -> String {
-        self
+macro_rules! basic_unwrap_impl {
+    ($tname:ty) => {
+        impl UnwrapFMOD<$tname> for $tname {
+            fn unwrap_fmod(self) -> Self {
+                self
+            }
+        }
+    };
+}
+
+basic_unwrap_impl!(String);
+basic_unwrap_impl!(std::ffi::c_uint);
+basic_unwrap_impl!(i32);
+basic_unwrap_impl!(u16);
+basic_unwrap_impl!(f32);
+
+impl<T, const N: usize> UnwrapFMOD<[T; N]> for Vec<T> {
+    fn unwrap_fmod(self) -> [T; N] {
+        self.try_into().unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
     }
 }
 
-impl UnwrapFMOD<std::ffi::c_uint> for std::ffi::c_uint {
-    fn unwrap_fmod(self) -> std::ffi::c_uint {
-        self
-    }
-}
-
-impl UnwrapFMOD<i32> for i32 {
-    fn unwrap_fmod(self) -> i32 {
-        self
-    }
-}
 
 pub(crate) trait WrapFMOD<T> {
     fn wrap_fmod(self) -> T;
+}
+
+macro_rules! basic_wrap_impl {
+    ($tname:ty) => {
+        impl WrapFMOD<$tname> for $tname {
+            fn wrap_fmod(self) -> Self {
+                self
+            }
+        }
+    };
+}
+
+macro_rules! tuple_wrap_impl {
+    ($( $generic:ident),* ) => {
+        paste::paste!{
+            impl<$( $generic, [<$generic Wrap>],)*> WrapFMOD<( $( [<$generic Wrap>], )* )> for ( $( $generic, )* ) 
+            where $( $generic: WrapFMOD<[<$generic Wrap>]>, )*
+            {
+                fn wrap_fmod(self) -> 
+                    (
+                        $(
+                            [<$generic Wrap>],
+                        )*
+                    )
+                {
+                    (
+                        $(
+                            ${ignore(generic)}
+                        
+                            self.${index()}.wrap_fmod(),
+                        )*
+                    )
+                }
+            }
+        }
+    };
+}
+
+basic_wrap_impl!(u32);
+basic_wrap_impl!(u16);
+basic_wrap_impl!(i32);
+basic_wrap_impl!(f32);
+
+tuple_wrap_impl!();
+tuple_wrap_impl!(T1);
+tuple_wrap_impl!(T1, T2);
+tuple_wrap_impl!(T1, T2, T3);
+
+impl<T, const N: usize> WrapFMOD<Vec<T>> for [T; N] {
+    fn wrap_fmod(self) -> Vec<T> {
+        Vec::from(self)
+    }
+}
+
+impl<T> WrapFMOD<Vec<T>> for Vec<T> {
+    fn wrap_fmod(self) -> Vec<T> {
+        self
+    }
 }
 
 // Thank YOU so much Bruh#1794!!!
@@ -60,32 +123,6 @@ where
 {
     fn wrap_fmod(self) -> Result<TWrap, EWrap> {
         self.map(WrapFMOD::wrap_fmod).map_err(WrapFMOD::wrap_fmod)
-    }
-}
-
-// TODO: Auto impl for TryConvert
-
-impl WrapFMOD<()> for () {
-    fn wrap_fmod(self) -> () {
-        ()
-    }
-}
-
-impl WrapFMOD<u32> for u32 {
-    fn wrap_fmod(self) -> u32 {
-        self
-    }
-}
-
-impl WrapFMOD<u16> for u16 {
-    fn wrap_fmod(self) -> u16 {
-        self
-    }
-}
-
-impl<T, const N: usize> WrapFMOD<Vec<T>> for [T; N] {
-    fn wrap_fmod(self) -> Vec<T> {
-        Vec::from(self)
     }
 }
 

@@ -167,12 +167,12 @@ macro_rules! bind_fn {
 
 #[macro_export]
 macro_rules! transparent_struct {
-    ($name:ident; [$($member:ident),*]) => {
+    ($name:ident; [$($member:ident: $type:ty),*]) => {
         impl crate::wrap::UnwrapFMOD<libfmod::$name> for magnus::RStruct {
             fn unwrap_fmod(self) -> libfmod::$name {
                 libfmod::$name {
                     $(
-                        $member: self.aref(stringify!($member)).unwrap(),
+                        $member: self.aref::<_, $type>(stringify!($member)).unwrap().unwrap_fmod(),
                     )*
                 }
             }

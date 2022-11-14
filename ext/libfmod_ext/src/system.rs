@@ -42,7 +42,19 @@ impl Studio {
     opaque_struct_method!(Studio, get_bank, Result<Bank, magnus::Error>; (String: ref));
     opaque_struct_method!(Studio, load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
     opaque_struct_method!(Studio, load_bank_memory, Result<Bank, magnus::Error>; (String: ref), (i32), (&LoadMemoryMode), (std::ffi::c_uint));
+    opaque_struct_method!(Studio, get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
     opaque_struct_method!(Studio, get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
+    opaque_struct_method!(Studio, lookup_id, Result<RStruct, magnus::Error>; (String: ref));
+    opaque_struct_method!(Studio, unload_all, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, flush_commands, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, flush_sample_loading, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, start_command_capture, Result<(), magnus::Error>; (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(Studio, stop_command_capture, Result<(), magnus::Error>;);
+    opaque_struct_method!(Studio, get_bank_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(Studio, get_parameter_description_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(Studio, get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
+    opaque_struct_method!(Studio, get_buffer_usage, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(Studio, reset_buffer_usage, Result<(), magnus::Error>;);
 
     bind_fn! {
         Studio, "System";
@@ -56,7 +68,19 @@ impl Studio {
         (get_bank, method, 1),
         (load_bank_file, method, 2),
         (load_bank_memory, method, 4),
-        (get_bank_by_id, method, 1)
+        (get_event_by_id, method, 1),
+        (get_bank_by_id, method, 1),
+        (lookup_id, method, 1),
+        (unload_all, method, 0),
+        (flush_commands, method, 0),
+        (flush_sample_loading, method, 0),
+        (start_command_capture, method, 2),
+        (stop_command_capture, method, 0),
+        (get_bank_count, method, 0),
+        (get_parameter_description_count, method, 0),
+        (get_cpu_usage, method, 0),
+        (get_buffer_usage, method, 0),
+        (reset_buffer_usage, method, 0)
     }
 }
 

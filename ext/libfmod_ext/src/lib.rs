@@ -1,6 +1,5 @@
 #![warn(rust_2018_idioms, clippy::all)]
 #![feature(macro_metavar_expr)]
-#![feature(associated_type_defaults)]
 
 use magnus::Module;
 
