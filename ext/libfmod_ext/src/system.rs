@@ -99,6 +99,7 @@ impl Studio {
     opaque_struct_method!(get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
     opaque_struct_method!(get_buffer_usage, Result<RStruct, magnus::Error>;);
     opaque_struct_method!(reset_buffer_usage, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
 
     bind_fn! {
         Studio, "System";
@@ -126,7 +127,8 @@ impl Studio {
         (get_parameter_description_count, method, 0),
         (get_cpu_usage, method, 0),
         (get_buffer_usage, method, 0),
-        (reset_buffer_usage, method, 0)
+        (reset_buffer_usage, method, 0),
+        (get_memory_usage, method, 0)
     }
 }
 

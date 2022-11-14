@@ -44,12 +44,36 @@ bindable_enum!(
 
 bindable_enum!(UserPropertyType, Integer, Boolean, Float, String);
 
+bindable_enum!(
+    EventProperty,
+    ChannelPriority,
+    ScheduleDelay,
+    ScheduleLookahead,
+    MinimumDistance,
+    MaximumDistance,
+    Cooldown,
+    Max
+);
+
+bindable_enum!(StopMode, AllowFadeout, Immediate);
+bindable_enum!(
+    PlaybackState,
+    Playing,
+    Sustaining,
+    Stopped,
+    Starting,
+    Stopping
+);
+
 pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
     ChannelControlCallbackType::bind(module)?;
     LoadMemoryMode::bind(module)?;
     LoadingState::bind(module)?;
     ParameterType::bind(module)?;
     UserPropertyType::bind(module)?;
+    EventProperty::bind(module)?;
+    StopMode::bind(module)?;
+    PlaybackState::bind(module)?;
 
     Ok(())
 }

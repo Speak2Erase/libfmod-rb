@@ -34,6 +34,7 @@ basic_unwrap_impl!(std::ffi::c_uint);
 basic_unwrap_impl!(i32);
 basic_unwrap_impl!(u16);
 basic_unwrap_impl!(f32);
+basic_unwrap_impl!(bool);
 
 impl<T, const N: usize> UnwrapFMOD<[T; N]> for Vec<T> {
     fn unwrap_fmod(self) -> [T; N] {

@@ -19,7 +19,10 @@ use magnus::RStruct;
 
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
-use crate::{enums::LoadingState, err_fmod};
+use crate::{
+    enums::{EventProperty, LoadingState, PlaybackState, StopMode},
+    err_fmod,
+};
 
 opaque_struct!(EventDescription, "Studio", "EventDescription");
 
@@ -305,8 +308,123 @@ impl EventDescription {
 opaque_struct!(EventInstance, "Studio", "EventInstance");
 
 impl EventInstance {
+    fn is_valid(&self) -> bool {
+        unsafe { libfmod::ffi::FMOD_Studio_EventInstance_IsValid(self.0.as_mut_ptr()) != 0 }
+    }
+
+    opaque_struct_method!(get_description, Result<EventDescription, magnus::Error>;);
+    opaque_struct_method!(get_volume, Result<(f32, f32), magnus::Error>;);
+    opaque_struct_method!(set_volume, Result<(), magnus::Error>; (f32));
+    opaque_struct_method!(get_pitch, Result<(f32, f32), magnus::Error>;);
+    opaque_struct_method!(set_pitch, Result<(), magnus::Error>; (f32));
+    opaque_struct_method!(get_3d_attributes, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(set_3d_attributes, Result<(), magnus::Error>; (RStruct));
+    opaque_struct_method!(get_listener_mask, Result<u32, magnus::Error>;);
+    opaque_struct_method!(set_listener_mask, Result<(), magnus::Error>; (u32));
+    opaque_struct_method!(get_property, Result<f32, magnus::Error>; (&EventProperty));
+    opaque_struct_method!(set_property, Result<(), magnus::Error>; (&EventProperty), (f32));
+    opaque_struct_method!(get_reverb_level, Result<f32, magnus::Error>; (i32));
+    opaque_struct_method!(set_reverb_level, Result<(), magnus::Error>; (i32), (f32));
+    opaque_struct_method!(get_paused, Result<bool, magnus::Error>;);
+    opaque_struct_method!(set_paused, Result<(), magnus::Error>; (bool));
+    opaque_struct_method!(start, Result<(), magnus::Error>;);
+    opaque_struct_method!(stop, Result<(), magnus::Error>; (&StopMode));
+    opaque_struct_method!(get_timeline_position, Result<i32, magnus::Error>;);
+    opaque_struct_method!(set_timeline_position, Result<(), magnus::Error>; (i32));
+    opaque_struct_method!(get_playback_state, Result<PlaybackState, magnus::Error>;);
+    opaque_struct_method!(get_min_max_distance, Result<(f32, f32), magnus::Error>;);
+    opaque_struct_method!(release, Result<(), magnus::Error>;);
+    opaque_struct_method!(is_virtual, Result<bool, magnus::Error>;);
+    opaque_struct_method!(get_parameter_by_name, Result<(f32, f32), magnus::Error>; (String: ref));
+    opaque_struct_method!(set_parameter_by_name, Result<(), magnus::Error>; (String: ref), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_name_with_label, Result<(), magnus::Error>; (String: ref), (String: ref), (bool));
+    opaque_struct_method!(get_parameter_by_id, Result<(f32, f32), magnus::Error>; (RStruct));
+    opaque_struct_method!(set_parameter_by_id, Result<(), magnus::Error>; (RStruct), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_id_with_label, Result<(), magnus::Error>; (RStruct), (String: ref), (bool));
+
+    fn set_parameter_by_ids(
+        &self,
+        ids: magnus::RArray,
+        mut values: Vec<f32>,
+        ignoreseekspeed: bool,
+    ) -> Result<(), magnus::Error> {
+        unsafe {
+            use crate::wrap::UnwrapFMOD;
+
+            let ids: Vec<_> = ids
+                .as_slice()
+                .iter()
+                .map(|id| {
+                    let struct_ = RStruct::from_value(*id).unwrap();
+                    let id: libfmod::ParameterId = struct_.unwrap_fmod();
+                    id.into()
+                })
+                .collect();
+
+            assert_eq!(
+                ids.len(),
+                values.len(),
+                "The two arrays should be the same length"
+            );
+
+            let result = libfmod::ffi::FMOD_Studio_EventInstance_SetParametersByIDs(
+                self.0.as_mut_ptr(),
+                ids.as_ptr(),
+                values.as_mut_ptr(),
+                ids.len() as i32,
+                ignoreseekspeed as i32,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(()),
+                error => Err(err_fmod!(
+                    "FMOD_Studio_EventInstance_SetParametersByIDs",
+                    error
+                )),
+            }
+        }
+    }
+
+    opaque_struct_method!(key_off, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_cpu_usage, Result<(u32, u32), magnus::Error>;);
+    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
+
     bind_fn! {
         EventInstance, "EventInstance";
+        (is_valid, method, 0),
+        (get_description, method, 0),
+        (get_volume, method, 0),
+        (set_volume, method, 1),
+        (get_pitch, method, 0),
+        (set_pitch, method, 1),
+        (get_3d_attributes, method, 0),
+        (set_3d_attributes, method, 1),
+        (get_listener_mask, method, 0),
+        (set_listener_mask, method, 1),
+        (get_property, method, 1),
+        (set_property, method, 2),
+        (get_reverb_level, method, 1),
+        (set_reverb_level, method, 2),
+        (get_paused, method, 0),
+        (set_paused, method, 1),
+        (start, method, 0),
+        (stop, method, 1),
+        (get_timeline_position, method, 0),
+        (set_timeline_position, method, 1),
+        (get_playback_state, method, 0),
+        (get_min_max_distance, method, 0),
+        (release, method, 0),
+        (is_virtual, method, 0),
+        (get_parameter_by_name, method, 1),
+        (set_parameter_by_name, method, 3),
+        (set_parameter_by_name_with_label, method, 3),
+        (get_parameter_by_id, method, 1),
+        (set_parameter_by_id, method, 3),
+        (set_parameter_by_id_with_label, method, 3),
+        (set_parameter_by_ids, method, 3),
+        (key_off, method, 0),
+        (get_cpu_usage, method, 0),
+        (get_memory_usage, method, 0)
     }
 }
 

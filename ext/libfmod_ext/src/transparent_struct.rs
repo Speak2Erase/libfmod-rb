@@ -130,6 +130,10 @@ impl crate::wrap::WrapFMOD<RStruct> for libfmod::UserProperty {
     }
 }
 
+transparent_struct!(Vector; [x: f32, y: f32, z: f32]);
+transparent_struct!(Attributes3d; [position: RStruct, velocity: RStruct, forward: RStruct, up: RStruct]);
+transparent_struct!(MemoryUsage; [exclusive: i32, inclusive: i32, sampledata: i32]);
+
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     let module = module.define_module("Struct")?;
 
@@ -142,6 +146,9 @@ pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     bind_parameterid(module)?;
     bind_parameterdescription(module)?;
     bind_userproperty(module)?;
+    bind_vector(module)?;
+    bind_attributes3d(module)?;
+    bind_memoryusage(module)?;
 
     Ok(())
 }
