@@ -16,4 +16,10 @@ end
 
 Master.get_event_list.each do |e|
     puts e.get_path
+    rand(1..5).to_i.times do |i|
+        e.create_instance
+    end
+
+    puts e.get_instance_list
 end
+

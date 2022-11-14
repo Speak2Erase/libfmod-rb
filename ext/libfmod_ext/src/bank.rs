@@ -45,17 +45,19 @@ impl Bank {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize]);
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
 
                     match libfmod::ffi::FMOD_Studio_Bank_GetPath(
                         self.0.as_mut_ptr(),
-                        cstr.as_ptr() as _,
+                        cstr,
                         retrieved,
                         &mut retrieved,
                     ) {
                         libfmod::ffi::FMOD_OK => {
                             use crate::wrap::WrapFMOD;
-                            cstr.into_string()
+                            std::ffi::CString::from_raw(cstr)
+                                .into_string()
                                 .map_err(|e| libfmod::Error::String(e).wrap_fmod())
                         }
                         err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
@@ -91,17 +93,18 @@ impl Bank {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize]);
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
 
                     match libfmod::ffi::FMOD_Studio_Bank_GetStringInfo(
                         self.0.as_mut_ptr(),
                         index,
                         &mut guid,
-                        cstr.as_ptr() as _,
+                        cstr,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => cstr
+                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
                             .into_string()
                             .map_err(|e| libfmod::Error::String(e).wrap_fmod())
                             .map(|s| (libfmod::Guid::try_from(guid).unwrap().wrap_fmod(), s)),

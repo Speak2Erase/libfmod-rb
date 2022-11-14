@@ -38,15 +38,15 @@ macro_rules! bindable_enum {
 
         impl $name {
             fn new(e: std::ffi::c_int) -> Result<Self, magnus::Error> {
-                use crate::wrap::WrapFMOD;
+                use $crate::wrap::WrapFMOD;
                 libfmod::$name::from(e).map(|e| Self(e)).map_err(|e| e.wrap_fmod())
             }
 
-            fn to_i(&self) -> std::ffi::c_int {
+            fn rb_to_i(&self) -> std::ffi::c_int {
                 From::from(self.0)
             }
 
-            fn to_string(&self) -> String {
+            fn rb_to_string(&self) -> String {
                 format!("FMOD::Enum::{}::{:#?}", stringify!($name), self.0)
             }
 
@@ -58,23 +58,23 @@ macro_rules! bindable_enum {
                 $(
                     class.const_set(stringify!($element), $name(libfmod::$name::$element))?;
                 )+
-                class.define_method("to_s", magnus::method!($name::to_string, 0))?;
-                class.define_method("inspect", magnus::method!($name::to_string, 0))?;
+                class.define_method("to_s", magnus::method!($name::rb_to_string, 0))?;
+                class.define_method("inspect", magnus::method!($name::rb_to_string, 0))?;
                 class.define_method("==", magnus::method!($name::eq, 1))?;
-                class.define_method("to_i", magnus::method!($name::to_i, 0))?;
+                class.define_method("to_i", magnus::method!($name::rb_to_i, 0))?;
                 class.define_singleton_method("new", magnus::function!($name::new, 1))?;
 
                 Ok(())
             }
         }
 
-        impl crate::wrap::WrapFMOD<$name> for libfmod::$name {
+        impl $crate::wrap::WrapFMOD<$name> for libfmod::$name {
             fn wrap_fmod(self) -> $name {
                 $name(self)
             }
         }
 
-        impl crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
+        impl $crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
             fn unwrap_fmod(self) -> libfmod::$name {
                 self.0
             }
@@ -97,13 +97,13 @@ macro_rules! opaque_struct {
             }
         }
 
-        impl crate::wrap::WrapFMOD<$name> for libfmod::$name {
+        impl $crate::wrap::WrapFMOD<$name> for libfmod::$name {
             fn wrap_fmod(self) -> $name {
                 $name(self)
             }
         }
 
-        impl crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
+        impl $crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
             fn unwrap_fmod(self) -> libfmod::$name {
                 self.0
             }
@@ -120,8 +120,8 @@ macro_rules! opaque_struct_method {
                 &self,
                 $( [<arg_ ${index()}>]: $arg, )*
             ) $( -> $result )? {
-                use crate::wrap::WrapFMOD;
-                use crate::wrap::UnwrapFMOD;
+                use $crate::wrap::WrapFMOD;
+                use $crate::wrap::UnwrapFMOD;
 
                 self.0.$fn_name($( $( ${ignore(ref)} &)?[<arg_ ${index()}>].unwrap_fmod(), ${ignore(arg)} )*).wrap_fmod()
             }
@@ -134,8 +134,8 @@ macro_rules! opaque_struct_function {
     ($struct_name:ident, $fn_name:ident $(, $result:ty)?;) => {
         #[allow(unused_imports)]
         fn $fn_name() $( -> $result )? {
-            use crate::wrap::WrapFMOD;
-            use crate::wrap::UnwrapFMOD;
+            use $crate::wrap::WrapFMOD;
+            use $crate::wrap::UnwrapFMOD;
 
             libfmod::$struct_name::$fn_name().wrap_fmod()
         }
@@ -168,7 +168,7 @@ macro_rules! bind_fn {
 #[macro_export]
 macro_rules! transparent_struct {
     ($name:ident; [$($member:ident: $type:ty),*]) => {
-        impl crate::wrap::UnwrapFMOD<libfmod::$name> for magnus::RStruct {
+        impl $crate::wrap::UnwrapFMOD<libfmod::$name> for magnus::RStruct {
             fn unwrap_fmod(self) -> libfmod::$name {
                 libfmod::$name {
                     $(
@@ -178,7 +178,7 @@ macro_rules! transparent_struct {
             }
         }
 
-        impl crate::wrap::WrapFMOD<magnus::RStruct> for libfmod::$name {
+        impl $crate::wrap::WrapFMOD<magnus::RStruct> for libfmod::$name {
             fn wrap_fmod(self) -> magnus::RStruct {
                 use magnus::{Module, RModule, RClass};
 
@@ -219,7 +219,7 @@ macro_rules! transparent_struct {
 macro_rules! err_fmod {
     ($ function : expr , $ code : expr) => {{
         {
-            use crate::wrap::WrapFMOD;
+            use $crate::wrap::WrapFMOD;
             libfmod::Error::Fmod {
                 function: $function.to_string(),
                 code: $code,

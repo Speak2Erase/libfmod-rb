@@ -52,6 +52,84 @@ transparent_struct!(ParameterDescription; [
      guid: RStruct
 ]);
 
+fn bind_userproperty(module: impl magnus::Module) -> Result<(), magnus::Error> {
+    module.const_set(
+        "UserProperty",
+        magnus::r_struct::define_struct(Some("UserProperty"), ("name", "type", "data"))?,
+    )
+}
+
+impl crate::wrap::UnwrapFMOD<libfmod::UserProperty> for RStruct {
+    fn unwrap_fmod(self) -> libfmod::UserProperty {
+        let name = self.aref("name").unwrap();
+        let type_ = self
+            .aref::<_, &crate::enums::UserPropertyType>("type")
+            .unwrap()
+            .unwrap_fmod();
+
+        let union = match type_ {
+            libfmod::UserPropertyType::Integer => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
+                intvalue: self.aref("data").unwrap(),
+            },
+            libfmod::UserPropertyType::Boolean => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
+                boolvalue: self.aref("data").unwrap(),
+            },
+            libfmod::UserPropertyType::Float => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
+                floatvalue: self.aref("data").unwrap(),
+            },
+            libfmod::UserPropertyType::String => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
+                stringvalue: std::ffi::CString::new(self.aref::<_, String>("data").unwrap())
+                    .unwrap()
+                    .into_raw(),
+            },
+        };
+
+        libfmod::UserProperty { name, type_, union }
+    }
+}
+
+impl crate::wrap::WrapFMOD<RStruct> for libfmod::UserProperty {
+    fn wrap_fmod(self) -> RStruct {
+        use magnus::{Module, RClass, RModule};
+
+        let rstruct = magnus::class::object()
+            .const_get::<_, RModule>("FMOD")
+            .unwrap()
+            .const_get::<_, RModule>("Struct")
+            .unwrap()
+            .const_get::<_, RClass>("UserProperty")
+            .unwrap();
+
+        let name = self.name;
+        let type_ = self.type_;
+
+        RStruct::from_value(
+            rstruct
+                .new_instance((name, type_.wrap_fmod(), unsafe {
+                    match type_ {
+                        libfmod::UserPropertyType::Integer => {
+                            magnus::Value::from(self.union.intvalue)
+                        }
+                        libfmod::UserPropertyType::Boolean => {
+                            magnus::Value::from(self.union.boolvalue != 0)
+                        }
+                        libfmod::UserPropertyType::Float => {
+                            magnus::Value::from(self.union.floatvalue)
+                        }
+                        // FIXME: Oh my god this is wildly unsafe
+                        libfmod::UserPropertyType::String => magnus::Value::from(
+                            std::ffi::CStr::from_ptr(self.union.stringvalue)
+                                .to_str()
+                                .unwrap(),
+                        ),
+                    }
+                }))
+                .unwrap(),
+        )
+        .unwrap()
+    }
+}
+
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     let module = module.define_module("Struct")?;
 
@@ -63,6 +141,7 @@ pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     bind_studioadvancedsettings(module)?;
     bind_parameterid(module)?;
     bind_parameterdescription(module)?;
+    bind_userproperty(module)?;
 
     Ok(())
 }

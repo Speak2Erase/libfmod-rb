@@ -43,23 +43,25 @@ impl EventDescription {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize]);
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
 
                     match libfmod::ffi::FMOD_Studio_EventDescription_GetPath(
                         self.0.as_mut_ptr(),
-                        cstr.as_ptr() as _,
+                        cstr,
                         retrieved,
                         &mut retrieved,
                     ) {
                         libfmod::ffi::FMOD_OK => {
                             use crate::wrap::WrapFMOD;
-                            cstr.into_string()
+                            std::ffi::CString::from_raw(cstr)
+                                .into_string()
                                 .map_err(|e| libfmod::Error::String(e).wrap_fmod())
                         }
-                        err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
+                        err => Err(err_fmod!("FMOD_Studio_EventDescription_GetPath", err)),
                     }
                 }
-                err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
+                err => Err(err_fmod!("FMOD_Studio_EventDescription_GetPath", err)),
             }
         }
     }
@@ -68,8 +70,162 @@ impl EventDescription {
     opaque_struct_method!(get_parameter_description_by_index, Result<RStruct, magnus::Error>; (i32));
     opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
 
-    opaque_struct_method!(get_user_property_count, Result<i32, magnus::Error>;);
+    fn get_parameter_label_by_index(
+        &self,
+        index: i32,
+        labelindex: i32,
+    ) -> Result<String, magnus::Error> {
+        unsafe {
+            let mut retrieved = 0;
 
+            let result = libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByIndex(
+                self.0.as_mut_ptr(),
+                index,
+                labelindex,
+                std::ptr::null_mut(),
+                0,
+                &mut retrieved,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
+
+                    match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByIndex(
+                        self.0.as_mut_ptr(),
+                        index,
+                        labelindex,
+                        cstr,
+                        retrieved,
+                        &mut retrieved,
+                    ) {
+                        libfmod::ffi::FMOD_OK => {
+                            use crate::wrap::WrapFMOD;
+                            std::ffi::CString::from_raw(cstr)
+                                .into_string()
+                                .map_err(|e| libfmod::Error::String(e).wrap_fmod())
+                        }
+                        err => Err(err_fmod!(
+                            "FMOD_Studio_EventDescription_GetParameterLabelByIndex",
+                            err
+                        )),
+                    }
+                }
+                err => Err(err_fmod!(
+                    "FMOD_Studio_EventDescription_GetParameterLabelByIndex",
+                    err
+                )),
+            }
+        }
+    }
+
+    fn get_parameter_label_by_name(
+        &self,
+        name: String,
+        labelindex: i32,
+    ) -> Result<String, magnus::Error> {
+        unsafe {
+            use crate::wrap::WrapFMOD;
+
+            let mut retrieved = 0;
+            let name = std::ffi::CString::new(name)
+                .map_err(|e| libfmod::Error::StringNul(e).wrap_fmod())?;
+
+            let result = libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByName(
+                self.0.as_mut_ptr(),
+                name.as_ptr(),
+                labelindex,
+                std::ptr::null_mut(),
+                0,
+                &mut retrieved,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
+
+                    match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByName(
+                        self.0.as_mut_ptr(),
+                        name.as_ptr(),
+                        labelindex,
+                        cstr,
+                        retrieved,
+                        &mut retrieved,
+                    ) {
+                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
+                            .into_string()
+                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        err => Err(err_fmod!(
+                            "FMOD_Studio_EventDescription_GetParameterLabelByName",
+                            err
+                        )),
+                    }
+                }
+                err => Err(err_fmod!(
+                    "FMOD_Studio_EventDescription_GetParameterLabelByName",
+                    err
+                )),
+            }
+        }
+    }
+
+    fn get_parameter_label_by_id(
+        &self,
+        id: RStruct,
+        labelindex: i32,
+    ) -> Result<String, magnus::Error> {
+        unsafe {
+            use crate::wrap::UnwrapFMOD;
+            use crate::wrap::WrapFMOD;
+
+            let mut retrieved = 0;
+            let id: libfmod::ParameterId = id.unwrap_fmod();
+            let id = id.into();
+
+            let result = libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByID(
+                self.0.as_mut_ptr(),
+                id,
+                labelindex,
+                std::ptr::null_mut(),
+                0,
+                &mut retrieved,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
+
+                    match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByID(
+                        self.0.as_mut_ptr(),
+                        id,
+                        labelindex,
+                        cstr,
+                        retrieved,
+                        &mut retrieved,
+                    ) {
+                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
+                            .into_string()
+                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        err => Err(err_fmod!(
+                            "FMOD_Studio_EventDescription_GetParameterLabelByID",
+                            err
+                        )),
+                    }
+                }
+                err => Err(err_fmod!(
+                    "FMOD_Studio_EventDescription_GetParameterLabelByID",
+                    err
+                )),
+            }
+        }
+    }
+
+    opaque_struct_method!(get_user_property_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_user_property_by_index, Result<RStruct, magnus::Error>; (i32));
+    opaque_struct_method!(get_user_property, Result<RStruct, magnus::Error>; (String: ref));
     opaque_struct_method!(get_length, Result<i32, magnus::Error>;);
     opaque_struct_method!(get_min_max_distance, Result<(f32, f32), magnus::Error>;);
     opaque_struct_method!(get_sound_size, Result<f32, magnus::Error>;);
@@ -79,8 +235,34 @@ impl EventDescription {
     opaque_struct_method!(is_3d, Result<bool, magnus::Error>;);
     opaque_struct_method!(is_doppler_enabled, Result<bool, magnus::Error>;);
     opaque_struct_method!(has_sustain_point, Result<bool, magnus::Error>;);
-
+    opaque_struct_method!(create_instance, Result<EventInstance, magnus::Error>;);
     opaque_struct_method!(get_instance_count, Result<i32, magnus::Error>;);
+
+    fn get_instance_list(&self) -> Result<Vec<EventInstance>, magnus::Error> {
+        unsafe {
+            use crate::wrap::WrapFMOD;
+
+            let mut array = vec![std::ptr::null_mut(); self.get_instance_count()? as usize];
+
+            let result = libfmod::ffi::FMOD_Studio_EventDescription_GetInstanceList(
+                self.0.as_mut_ptr(),
+                array.as_mut_ptr(),
+                array.len() as i32,
+                std::ptr::null_mut(),
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(array
+                    .into_iter()
+                    .map(|e| libfmod::EventInstance::from(e).wrap_fmod())
+                    .collect()),
+                error => Err(err_fmod!(
+                    "FMOD_Studio_EventDescription_GetInstanceList",
+                    error
+                )),
+            }
+        }
+    }
 
     opaque_struct_method!(load_sample_data, Result<(), magnus::Error>;);
     opaque_struct_method!(unload_sample_data, Result<(), magnus::Error>;);
@@ -95,7 +277,12 @@ impl EventDescription {
         (get_parameter_description_count, method, 0),
         (get_parameter_description_by_index, method, 1),
         (get_parameter_description_by_name, method, 1),
+        (get_parameter_label_by_index, method, 2),
+        (get_parameter_label_by_name, method, 2),
+        (get_parameter_label_by_id, method, 2),
         (get_user_property_count, method, 0),
+        (get_user_property_by_index, method, 1),
+        (get_user_property, method, 1),
         (get_length, method, 0),
         (get_min_max_distance, method, 0),
         (get_sound_size, method, 0),
@@ -105,7 +292,9 @@ impl EventDescription {
         (is_3d, method, 0),
         (is_doppler_enabled, method, 0),
         (has_sustain_point, method, 0),
+        (create_instance, method, 0),
         (get_instance_count, method, 0),
+        (get_instance_list, method, 0),
         (load_sample_data, method, 0),
         (unload_sample_data, method, 0),
         (get_sample_loading_state, method, 0),
@@ -113,6 +302,15 @@ impl EventDescription {
     }
 }
 
+opaque_struct!(EventInstance, "Studio", "EventInstance");
+
+impl EventInstance {
+    bind_fn! {
+        EventInstance, "EventInstance";
+    }
+}
+
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
-    EventDescription::bind(module)
+    EventDescription::bind(module)?;
+    EventInstance::bind(module)
 }

@@ -42,11 +42,14 @@ bindable_enum!(
     Max
 );
 
+bindable_enum!(UserPropertyType, Integer, Boolean, Float, String);
+
 pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
     ChannelControlCallbackType::bind(module)?;
     LoadMemoryMode::bind(module)?;
     LoadingState::bind(module)?;
     ParameterType::bind(module)?;
+    UserPropertyType::bind(module)?;
 
     Ok(())
 }

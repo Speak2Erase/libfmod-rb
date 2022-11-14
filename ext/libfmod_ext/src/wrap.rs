@@ -70,6 +70,7 @@ macro_rules! tuple_wrap_impl {
                         )*
                     )
                 {
+                    #![allow(clippy::unused_unit)]
                     (
                         $(
                             ${ignore(generic)}
@@ -143,7 +144,7 @@ impl WrapFMOD<magnus::Error> for libfmod::Error {
             }
             Self::String(e) => format!("Error converting string: {e}"),
             Self::StringNul(e) => format!("String nul error: {e}"),
-            Self::NotDspFft => format!("Not DSP fft"),
+            Self::NotDspFft => "Not DSP fft".to_string(),
         })
     }
 }
