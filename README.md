@@ -33,4 +33,7 @@ struct.up.x = 15
 eventinstance.set_3d_attributes(struct)
 ```
 
+Also of note: User data and callbacks are unsupported for now.
+Callbacks in the future will likely run in an event thread. See [this](https://www.burgestrand.se/articles/asynchronous-callbacks-in-ruby-c-extensions/) for more information.
+
 I hope that's enough info to get you started!
