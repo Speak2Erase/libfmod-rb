@@ -17,49 +17,95 @@
 
 use magnus::RStruct;
 
-#[allow(unused_imports)]
-use crate::{bind_fn, opaque_struct, opaque_struct_method, opaque_struct_function};
-use crate::event::EventDescription;
 use crate::bank::Bank;
 use crate::enums::LoadMemoryMode;
+use crate::err_fmod;
+use crate::event::EventDescription;
+#[allow(unused_imports)]
+use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
 
 opaque_struct!(Studio, "Studio", "System");
 
 impl Studio {
     opaque_struct_function!(Studio, create, Result<Self, magnus::Error>;);
-    opaque_struct_method!(Studio, is_valid, Result<(), magnus::Error>;);
-    
-    fn init(&self, maxchannels: i32, studioflags: std::ffi::c_uint, flags: std::ffi::c_uint) -> Result<(), magnus::Error> {
-        use crate::wrap::WrapFMOD;
 
-        self.0.initialize(maxchannels, studioflags, flags, None).wrap_fmod()
+    // We define this manually because libfmod gets it wrong.
+    fn is_valid(&self) -> bool {
+        unsafe { libfmod::ffi::FMOD_Studio_System_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(Studio, update, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, release, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, get_core_system, Result<System, magnus::Error>;);
-    opaque_struct_method!(Studio, get_event, Result<EventDescription, magnus::Error>; (String: ref));
-    opaque_struct_method!(Studio, get_bank, Result<Bank, magnus::Error>; (String: ref));
-    opaque_struct_method!(Studio, load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
-    opaque_struct_method!(Studio, load_bank_memory, Result<Bank, magnus::Error>; (String: ref), (i32), (&LoadMemoryMode), (std::ffi::c_uint));
-    opaque_struct_method!(Studio, get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
-    opaque_struct_method!(Studio, get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
-    opaque_struct_method!(Studio, lookup_id, Result<RStruct, magnus::Error>; (String: ref));
-    opaque_struct_method!(Studio, unload_all, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, flush_commands, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, flush_sample_loading, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, start_command_capture, Result<(), magnus::Error>; (String: ref), (std::ffi::c_uint));
-    opaque_struct_method!(Studio, stop_command_capture, Result<(), magnus::Error>;);
-    opaque_struct_method!(Studio, get_bank_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(Studio, get_parameter_description_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(Studio, get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
-    opaque_struct_method!(Studio, get_buffer_usage, Result<RStruct, magnus::Error>;);
-    opaque_struct_method!(Studio, reset_buffer_usage, Result<(), magnus::Error>;);
+    opaque_struct_method!(set_advanced_settings, Result<(), magnus::Error>; (RStruct));
+    opaque_struct_method!(get_advanced_settings, Result<RStruct, magnus::Error>;);
+
+    fn init(
+        &self,
+        maxchannels: i32,
+        studioflags: std::ffi::c_uint,
+        flags: std::ffi::c_uint,
+    ) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        self.0
+            .initialize(maxchannels, studioflags, flags, None)
+            .wrap_fmod()
+    }
+
+    opaque_struct_method!(update, Result<(), magnus::Error>;);
+    opaque_struct_method!(release, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_core_system, Result<System, magnus::Error>;);
+    opaque_struct_method!(get_event, Result<EventDescription, magnus::Error>; (String: ref));
+    opaque_struct_method!(get_bank, Result<Bank, magnus::Error>; (String: ref));
+    opaque_struct_method!(load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
+
+    // libfmod does NOT define this function correctly.
+    // Because of this we have to write it ourselves-
+    fn load_bank_memory(
+        &self,
+        data: Vec<u8>,
+        mode: &LoadMemoryMode,
+        flags: std::ffi::c_uint,
+    ) -> Result<Bank, magnus::Error> {
+        use crate::wrap::UnwrapFMOD;
+        use crate::wrap::WrapFMOD;
+
+        unsafe {
+            let mut bank = std::ptr::null_mut();
+
+            let result = libfmod::ffi::FMOD_Studio_System_LoadBankMemory(
+                self.0.as_mut_ptr(),
+                data.as_ptr() as *const i8,
+                data.len() as i32,
+                mode.unwrap_fmod().into(),
+                flags,
+                &mut bank,
+            );
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
+                error => Err(err_fmod!("", error)),
+            }
+        }
+    }
+
+    opaque_struct_method!(get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
+    opaque_struct_method!(get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
+    opaque_struct_method!(lookup_id, Result<RStruct, magnus::Error>; (String: ref));
+    opaque_struct_method!(unload_all, Result<(), magnus::Error>;);
+    opaque_struct_method!(flush_commands, Result<(), magnus::Error>;);
+    opaque_struct_method!(flush_sample_loading, Result<(), magnus::Error>;);
+    opaque_struct_method!(start_command_capture, Result<(), magnus::Error>; (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(stop_command_capture, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_bank_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_parameter_description_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
+    opaque_struct_method!(get_buffer_usage, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(reset_buffer_usage, Result<(), magnus::Error>;);
 
     bind_fn! {
         Studio, "System";
         (create, singleton_method, 0),
         (is_valid, method, 0),
+        (set_advanced_settings, method, 1),
+        (get_advanced_settings, method, 0),
         (init, method, 3),
         (update, method, 0),
         (release, method, 0),
@@ -67,7 +113,7 @@ impl Studio {
         (get_event, method, 1),
         (get_bank, method, 1),
         (load_bank_file, method, 2),
-        (load_bank_memory, method, 4),
+        (load_bank_memory, method, 3),
         (get_event_by_id, method, 1),
         (get_bank_by_id, method, 1),
         (lookup_id, method, 1),
@@ -92,7 +138,10 @@ impl System {
     }
 }
 
-pub fn bind_system(core: impl magnus::Module, studio: impl magnus::Module) -> Result<(), magnus::Error> {
+pub fn bind_system(
+    core: impl magnus::Module,
+    studio: impl magnus::Module,
+) -> Result<(), magnus::Error> {
     System::bind(core)?;
     Studio::bind(studio)?;
 

@@ -1,17 +1,17 @@
 // Copyright (C) 2022 Lily Lyons
-// 
+//
 // This file is part of libfmod.
-// 
+//
 // libfmod is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // libfmod is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -113,11 +113,11 @@ macro_rules! opaque_struct {
 
 #[macro_export]
 macro_rules! opaque_struct_method {
-    ($struct_name:ident, $fn_name:ident $(, $result:ty)?; $( ( $arg:ty $(: $ref:ident)? ) ),*) => {
+    ($fn_name:ident $(, $result:ty)?; $( ( $arg:ty $(: $ref:ident)? ) ),*) => {
         paste::paste!{
             #[allow(unused_imports)]
             fn $fn_name(
-                &self, 
+                &self,
                 $( [<arg_ ${index()}>]: $arg, )*
             ) $( -> $result )? {
                 use crate::wrap::WrapFMOD;
@@ -203,7 +203,7 @@ macro_rules! transparent_struct {
             fn [<bind_ $name:lower>](module: impl magnus::Module) -> Result<(), magnus::Error> {
                 module.const_set(stringify!($name),
                     magnus::r_struct::define_struct(
-                        Some(stringify!($name)), 
+                        Some(stringify!($name)),
                         (
                             $( stringify!($member), )*
                         )
@@ -211,6 +211,21 @@ macro_rules! transparent_struct {
                 )
             }
         }
-        
+
     };
+}
+
+#[macro_export]
+macro_rules! err_fmod {
+    ($ function : expr , $ code : expr) => {{
+        {
+            use crate::wrap::WrapFMOD;
+            libfmod::Error::Fmod {
+                function: $function.to_string(),
+                code: $code,
+                message: libfmod::ffi::map_fmod_error($code).to_string(),
+            }
+            .wrap_fmod()
+        }
+    }};
 }

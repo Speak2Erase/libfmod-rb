@@ -3,16 +3,15 @@
 
 use magnus::Module;
 
-mod enums;
-mod system;
-mod event;
 mod bank;
-mod wrap;
+mod enums;
+mod event;
+mod system;
 mod transparent_struct;
+mod wrap;
 
 #[macro_use]
 mod macros;
-
 
 #[magnus::init]
 fn init() -> Result<(), magnus::Error> {
