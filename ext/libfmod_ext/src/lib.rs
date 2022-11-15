@@ -10,11 +10,15 @@ mod system;
 mod transparent_struct;
 mod wrap;
 
+mod callback;
+
 #[macro_use]
 mod macros;
 
 #[magnus::init]
 fn init() -> Result<(), magnus::Error> {
+    magnus::define_global_const("FMOD_CALLBACKS", magnus::RHash::new())?;
+
     let top = magnus::define_module("FMOD")?;
 
     let core = top.define_module("Core")?;
@@ -26,6 +30,10 @@ fn init() -> Result<(), magnus::Error> {
     event::bind(studio)?;
     enums::bind_enums(enums)?;
     transparent_struct::bind(top)?;
+
+    unsafe {
+        rb_sys::rb_thread_create(Some(callback::callback_thread), std::ptr::null_mut());
+    }
 
     Ok(())
 }

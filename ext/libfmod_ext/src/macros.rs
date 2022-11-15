@@ -87,7 +87,7 @@ macro_rules! opaque_struct {
     ($name:ident, $mod:literal, $rb_name:literal) => {
         paste::paste! {
             #[magnus::wrap(class = "FMOD::" $mod "::" $rb_name "", free_immediatly, size)]
-            #[derive(Clone, Copy)]
+            #[derive(Clone, Copy, Debug)]
             pub(crate) struct $name(libfmod::$name);
         }
 
@@ -108,6 +108,8 @@ macro_rules! opaque_struct {
                 self.0
             }
         }
+
+        unsafe impl Send for $name {}
     };
 }
 

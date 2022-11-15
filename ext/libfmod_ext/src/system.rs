@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use magnus::RStruct;
+use magnus::{Module, RStruct};
 
 use crate::bank::Bank;
 use crate::enums::LoadMemoryMode;
@@ -101,6 +101,58 @@ impl Studio {
     opaque_struct_method!(reset_buffer_usage, Result<(), magnus::Error>;);
     opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
 
+    fn set_callback(
+        &self,
+        callback: magnus::Value,
+        mask: std::ffi::c_uint,
+    ) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        magnus::class::object()
+            .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")?
+            .aset("fmod_studio_system_callback", callback)?;
+
+        self.0
+            .set_user_data(magnus::rb_sys::raw_value(callback) as _)
+            .map_err(|e| e.wrap_fmod())?;
+
+        unsafe extern "C" fn anon(
+            system: *mut libfmod::ffi::FMOD_STUDIO_SYSTEM,
+            type_: u32,
+            data: *mut std::ffi::c_void,
+            userdata: *mut std::ffi::c_void,
+        ) -> i32 {
+            use crate::callback::{add_callback, CallbackType};
+
+            println!("Adding callback");
+
+            let arc = add_callback(
+                magnus::rb_sys::value_from_raw(userdata as _),
+                CallbackType::StudioSystem {
+                    system: libfmod::Studio::from(system).wrap_fmod(),
+                    type_,
+                    data: if data.is_null() {
+                        None
+                    } else {
+                        Some(libfmod::Bank::from(data as _).wrap_fmod())
+                    },
+                },
+            );
+            let (condvar, mutex) = arc.as_ref();
+
+            let mut result = mutex.lock();
+            condvar.wait(&mut result);
+
+            println!("Callback finished");
+
+            (*result).try_convert().unwrap_or(0)
+        }
+
+        self.0
+            .set_callback(Some(anon), mask)
+            .map_err(|e| e.wrap_fmod())
+    }
+
     bind_fn! {
         Studio, "System";
         (create, singleton_method, 0),
@@ -128,7 +180,8 @@ impl Studio {
         (get_cpu_usage, method, 0),
         (get_buffer_usage, method, 0),
         (reset_buffer_usage, method, 0),
-        (get_memory_usage, method, 0)
+        (get_memory_usage, method, 0),
+        (set_callback, method, 2)
     }
 }
 
