@@ -71,6 +71,7 @@ impl EventDescription {
 
     opaque_struct_method!(get_parameter_description_count, Result<i32, magnus::Error>;);
     opaque_struct_method!(get_parameter_description_by_index, Result<RStruct, magnus::Error>; (i32));
+    opaque_struct_method!(get_parameter_description_by_id, Result<RStruct, magnus::Error>; (RStruct));
     opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
 
     fn get_parameter_label_by_index(
@@ -279,6 +280,7 @@ impl EventDescription {
         (get_path, method, 0),
         (get_parameter_description_count, method, 0),
         (get_parameter_description_by_index, method, 1),
+        (get_parameter_description_by_id, method, 1),
         (get_parameter_description_by_name, method, 1),
         (get_parameter_label_by_index, method, 2),
         (get_parameter_label_by_name, method, 2),

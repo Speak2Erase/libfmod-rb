@@ -15,66 +15,91 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-    collections::VecDeque,
-    sync::mpsc::{channel, Receiver, Sender},
-};
+use std::ffi::c_void;
 
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use magnus::Module;
 use once_cell::sync::Lazy;
-use parking_lot::{Condvar, Mutex};
 
 pub(crate) trait Callback {
     fn call(&self);
 }
 
-static QUEUE: Lazy<Mutex<VecDeque<Box<dyn Callback + Send>>>> = Lazy::new(Default::default);
-static ABORT: Mutex<bool> = Mutex::new(false);
-static CONDVAR: Condvar = Condvar::new();
+type BoxedCallback = Box<dyn Callback + Send>;
+type CallbackSender = Sender<Option<BoxedCallback>>;
+type CallbackReceiver = Receiver<Option<BoxedCallback>>;
 
-unsafe extern "C" fn call_callback(callback: *mut std::ffi::c_void) -> u64 {
-    let callback = *Box::from_raw(callback as *mut Box<dyn Callback + Send>);
+static CHANNEL: Lazy<(CallbackSender, CallbackReceiver)> = Lazy::new(unbounded);
 
+unsafe extern "C" fn call_callback(callback: *mut c_void) -> u64 {
+    // Here we get the callback from the pointer (Remember its double boxed so we can pass it around)
+    let callback = *Box::from_raw(callback as *mut BoxedCallback);
+
+    #[cfg(feature = "track-callbacks")]
+    println!("Attempting ro run callback...");
+    // ..Then we call it.
     callback.call();
+    // The callback should be dropped and we don't have to worry about a memory leak. Hooray!
 
     rb_sys::Qnil.into()
 }
 
-unsafe extern "C" fn wait_for_callback(_data: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
-    let mut queue = QUEUE.lock();
-    CONDVAR.wait(&mut queue);
+unsafe extern "C" fn wait_for_callback(_data: *mut c_void) -> *mut c_void {
+    #[cfg(feature = "track-callbacks")]
+    println!("Waiting for a callback to run...");
 
-    std::ptr::null_mut()
+    let callback = CHANNEL.1.recv().unwrap();
+
+    #[cfg(feature = "track-callbacks")]
+    println!("A callback needs to be run.");
+
+    Box::into_raw(Box::new(callback)) as *mut _
 }
 
-unsafe extern "C" fn stop_waiting(_data: *mut std::ffi::c_void) {
-    *ABORT.lock() = true;
+unsafe extern "C" fn stop_waiting(_data: *mut c_void) {
+    #[cfg(feature = "track-callbacks")]
+    println!("Aborting callback thread...");
 
-    CONDVAR.notify_all();
+    // Send a `None` to let notify that we're aborting.
+    CHANNEL.0.send(None).unwrap();
 }
 
-pub(crate) fn add_callback(callback: Box<dyn Callback + Send>) {
-    QUEUE.lock().push_back(callback);
+fn add_callback(callback: BoxedCallback) {
+    #[cfg(feature = "track-callbacks")]
+    {
+        println!("Adding callback to queue")
+    }
 
-    CONDVAR.notify_all();
+    CHANNEL.0.send(Some(callback)).unwrap();
 }
 
-pub unsafe extern "C" fn callback_thread(_: *mut std::ffi::c_void) -> u64 {
+// Unsafety galore!
+pub unsafe extern "C" fn callback_thread(_: *mut c_void) -> u64 {
     loop {
-        rb_sys::rb_thread_call_without_gvl(
+        // Wait until we need to run a callback.
+        // This runs wait_for_callback and returns the result it returns.
+        let callback = rb_sys::rb_thread_call_without_gvl(
             Some(wait_for_callback),
             std::ptr::null_mut(),
             Some(stop_waiting),
             std::ptr::null_mut(),
         );
 
-        if *ABORT.lock() {
-            break;
-        }
+        //? SAFETY:
+        //? BoxedCallback is a trait object so we need to Box it to pass it around over the ffi boundary.
+        //? The Box we get from wait_for_callback should ALWAYS be valid as it returns a pointer from Box::raw.
+        let callback = *Box::from_raw(callback as *mut Option<BoxedCallback>);
 
-        if let Some(callback) = QUEUE.lock().pop_front() {
+        // Get the callback we need to run.
+        if let Some(callback) = callback {
+            #[cfg(feature = "track-callbacks")]
+            println!("Spawning a thread to run callback");
+            // We need to box it again to pass it over the ffi boundary...
             let callback = Box::into_raw(Box::new(callback));
+            // And then we spawn a thread to run the callback so we don't block this one.
             rb_sys::rb_thread_create(Some(call_callback), callback as _);
+        } else {
+            break;
         }
     }
 
@@ -94,7 +119,7 @@ impl StudioSystemCallback {
         type_: u32,
         data: Option<crate::bank::Bank>,
     ) -> Receiver<i32> {
-        let (sender, reciever) = channel();
+        let (sender, reciever) = bounded(1);
 
         let callback = Box::new(Self {
             system,
@@ -104,14 +129,26 @@ impl StudioSystemCallback {
             sender,
         });
 
+        #[cfg(feature = "track-callbacks")]
+        println!("System callback created");
+
         add_callback(callback);
 
         reciever
     }
 }
 
+#[cfg(feature = "track-callbacks")]
+impl Drop for StudioSystemCallback {
+    fn drop(&mut self) {
+        println!("Callback has been dropped")
+    }
+}
+
 impl Callback for StudioSystemCallback {
     fn call(&self) {
+        #[cfg(feature = "track-callbacks")]
+        println!("Running callback...");
         let result = magnus::class::object()
             .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")
             .unwrap()
@@ -123,6 +160,9 @@ impl Callback for StudioSystemCallback {
                 e
             })
             .unwrap_or(0);
+
+        #[cfg(feature = "track-callbacks")]
+        println!("Callback finished with result {result}");
 
         self.sender.send(result).unwrap();
     }

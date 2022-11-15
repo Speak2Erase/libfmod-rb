@@ -39,5 +39,5 @@ loop do
     old_call_count = call_count
   end
 
-  sleep(1.0 / 120.0)
+  sleep(1.0 / 60.0)
 end

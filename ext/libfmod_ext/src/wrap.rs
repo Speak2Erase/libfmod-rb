@@ -36,6 +36,15 @@ basic_unwrap_impl!(u16);
 basic_unwrap_impl!(f32);
 basic_unwrap_impl!(bool);
 
+impl<T, TUnwrap> UnwrapFMOD<Option<TUnwrap>> for Option<T>
+where
+    T: UnwrapFMOD<TUnwrap>,
+{
+    fn unwrap_fmod(self) -> Option<TUnwrap> {
+        self.map(UnwrapFMOD::unwrap_fmod)
+    }
+}
+
 impl<T, const N: usize> UnwrapFMOD<[T; N]> for Vec<T> {
     fn unwrap_fmod(self) -> [T; N] {
         self.try_into().unwrap_or_else(|v: Vec<T>| {

@@ -17,6 +17,10 @@ mod macros;
 
 #[magnus::init]
 fn init() -> Result<(), magnus::Error> {
+    unsafe {
+        rb_sys::rb_ext_ractor_safe(true);
+    }
+
     magnus::define_global_const("FMOD_CALLBACKS", magnus::RHash::new())?;
 
     let top = magnus::define_module("FMOD")?;
