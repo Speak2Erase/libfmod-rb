@@ -112,20 +112,13 @@ impl Studio {
             .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")?
             .aset("fmod_studio_system_callback", callback)?;
 
-        self.0
-            .set_user_data(magnus::rb_sys::raw_value(callback) as _)
-            .map_err(|e| e.wrap_fmod())?;
-
         unsafe extern "C" fn anon(
             system: *mut libfmod::ffi::FMOD_STUDIO_SYSTEM,
             type_: u32,
             data: *mut std::ffi::c_void,
-            userdata: *mut std::ffi::c_void,
+            _userdata: *mut std::ffi::c_void,
         ) -> i32 {
-            // println!("Adding callback");
-
             let reciever = StudioSystemCallback::create(
-                magnus::rb_sys::value_from_raw(userdata as _),
                 libfmod::Studio::from(system).wrap_fmod(),
                 type_,
                 if data.is_null() {
@@ -134,8 +127,6 @@ impl Studio {
                     Some(libfmod::Bank::from(data as _).wrap_fmod())
                 },
             );
-
-            // println!("Callback finished");
 
             reciever.recv().unwrap()
         }

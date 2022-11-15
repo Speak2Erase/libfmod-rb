@@ -20,6 +20,7 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 
+use magnus::Module;
 use once_cell::sync::Lazy;
 use parking_lot::{Condvar, Mutex};
 
@@ -34,11 +35,7 @@ static CONDVAR: Condvar = Condvar::new();
 unsafe extern "C" fn call_callback(callback: *mut std::ffi::c_void) -> u64 {
     let callback = *Box::from_raw(callback as *mut Box<dyn Callback + Send>);
 
-    // println!("Calling callback");
     callback.call();
-    // println!("Returning result");
-
-    // println!("Returning result finished");
 
     rb_sys::Qnil.into()
 }
@@ -85,7 +82,6 @@ pub unsafe extern "C" fn callback_thread(_: *mut std::ffi::c_void) -> u64 {
 }
 
 pub(crate) struct StudioSystemCallback {
-    callback: magnus::Value,
     system: crate::system::Studio,
     type_: u32,
     data: Option<crate::bank::Bank>,
@@ -94,7 +90,6 @@ pub(crate) struct StudioSystemCallback {
 
 impl StudioSystemCallback {
     pub fn create(
-        callback: magnus::Value,
         system: crate::system::Studio,
         type_: u32,
         data: Option<crate::bank::Bank>,
@@ -102,10 +97,10 @@ impl StudioSystemCallback {
         let (sender, reciever) = channel();
 
         let callback = Box::new(Self {
-            callback,
             system,
             type_,
             data,
+
             sender,
         });
 
@@ -117,11 +112,14 @@ impl StudioSystemCallback {
 
 impl Callback for StudioSystemCallback {
     fn call(&self) {
-        let result = self
-            .callback
+        let result = magnus::class::object()
+            .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")
+            .unwrap()
+            .aref::<_, magnus::Value>("fmod_studio_system_callback")
+            .unwrap()
             .funcall("call", (self.system, self.type_, self.data))
             .map_err(|e| {
-                println!("Warning: {e}");
+                eprintln!("WARNING RUBY ERROR IN CALLBACK: {e}");
                 e
             })
             .unwrap_or(0);
