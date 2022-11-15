@@ -17,10 +17,10 @@
 
 use magnus::{Module, RStruct};
 
-use crate::bank::Bank;
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
 use crate::event::EventDescription;
+use crate::{bank::Bank, callback::StudioSystemCallback};
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
 
@@ -122,30 +122,22 @@ impl Studio {
             data: *mut std::ffi::c_void,
             userdata: *mut std::ffi::c_void,
         ) -> i32 {
-            use crate::callback::{add_callback, CallbackType};
+            // println!("Adding callback");
 
-            println!("Adding callback");
-
-            let arc = add_callback(
+            let reciever = StudioSystemCallback::create(
                 magnus::rb_sys::value_from_raw(userdata as _),
-                CallbackType::StudioSystem {
-                    system: libfmod::Studio::from(system).wrap_fmod(),
-                    type_,
-                    data: if data.is_null() {
-                        None
-                    } else {
-                        Some(libfmod::Bank::from(data as _).wrap_fmod())
-                    },
+                libfmod::Studio::from(system).wrap_fmod(),
+                type_,
+                if data.is_null() {
+                    None
+                } else {
+                    Some(libfmod::Bank::from(data as _).wrap_fmod())
                 },
             );
-            let (condvar, mutex) = arc.as_ref();
 
-            let mut result = mutex.lock();
-            condvar.wait(&mut result);
+            // println!("Callback finished");
 
-            println!("Callback finished");
-
-            (*result).try_convert().unwrap_or(0)
+            reciever.recv().unwrap()
         }
 
         self.0

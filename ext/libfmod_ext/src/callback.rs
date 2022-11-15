@@ -15,69 +15,30 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::VecDeque, sync::Arc};
+use std::{
+    collections::VecDeque,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 use once_cell::sync::Lazy;
 use parking_lot::{Condvar, Mutex};
 
-use crate::wrap::WrapFMOD;
-
-#[derive(Debug)]
-struct Callback {
-    callback: magnus::Value,
-    output: Arc<(Condvar, Mutex<magnus::Value>)>,
-    type_: CallbackType,
+pub(crate) trait Callback {
+    fn call(&self);
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum CallbackType {
-    StudioSystem {
-        system: crate::system::Studio,
-        type_: u32,
-        data: Option<crate::bank::Bank>,
-    },
-}
-
-impl WrapFMOD<magnus::RArray> for CallbackType {
-    fn wrap_fmod(self) -> magnus::RArray {
-        let array = magnus::RArray::new();
-
-        match self {
-            Self::StudioSystem {
-                system,
-                type_,
-                data,
-            } => {
-                array.push(system).unwrap();
-                array.push(type_).unwrap();
-                array.push(data).unwrap();
-            }
-        }
-
-        array
-    }
-}
-
-static QUEUE: Lazy<Mutex<VecDeque<Callback>>> = Lazy::new(Default::default);
+static QUEUE: Lazy<Mutex<VecDeque<Box<dyn Callback + Send>>>> = Lazy::new(Default::default);
 static ABORT: Mutex<bool> = Mutex::new(false);
 static CONDVAR: Condvar = Condvar::new();
 
 unsafe extern "C" fn call_callback(callback: *mut std::ffi::c_void) -> u64 {
-    let callback = (callback as *mut Callback).as_mut().unwrap();
+    let callback = *Box::from_raw(callback as *mut Box<dyn Callback + Send>);
 
-    println!("Calling callback");
-    let result = callback
-        .callback
-        .funcall::<_, _, magnus::Value>("call", callback.type_.wrap_fmod().as_slice())
-        .unwrap_or(*magnus::value::QNIL);
-    println!("Returning result");
+    // println!("Calling callback");
+    callback.call();
+    // println!("Returning result");
 
-    let (condvar, output) = callback.output.as_ref();
-
-    *output.lock() = result;
-    println!("Notified: {}", condvar.notify_all());
-
-    println!("Returning result finished");
+    // println!("Returning result finished");
 
     rb_sys::Qnil.into()
 }
@@ -95,23 +56,10 @@ unsafe extern "C" fn stop_waiting(_data: *mut std::ffi::c_void) {
     CONDVAR.notify_all();
 }
 
-pub(crate) fn add_callback(
-    callback: magnus::Value,
-    type_: CallbackType,
-) -> Arc<(Condvar, Mutex<magnus::Value>)> {
-    let output = Arc::default();
-
-    let callback = Callback {
-        callback,
-        output: Arc::clone(&output),
-        type_,
-    };
-
+pub(crate) fn add_callback(callback: Box<dyn Callback + Send>) {
     QUEUE.lock().push_back(callback);
 
     CONDVAR.notify_all();
-
-    output
 }
 
 pub unsafe extern "C" fn callback_thread(_: *mut std::ffi::c_void) -> u64 {
@@ -127,13 +75,57 @@ pub unsafe extern "C" fn callback_thread(_: *mut std::ffi::c_void) -> u64 {
             break;
         }
 
-        if let Some(mut callback) = QUEUE.lock().pop_front() {
-            rb_sys::rb_thread_create(
-                Some(call_callback),
-                &mut callback as *mut _ as *mut std::ffi::c_void,
-            );
+        if let Some(callback) = QUEUE.lock().pop_front() {
+            let callback = Box::into_raw(Box::new(callback));
+            rb_sys::rb_thread_create(Some(call_callback), callback as _);
         }
     }
 
     rb_sys::Qnil.into()
+}
+
+pub(crate) struct StudioSystemCallback {
+    callback: magnus::Value,
+    system: crate::system::Studio,
+    type_: u32,
+    data: Option<crate::bank::Bank>,
+    sender: Sender<i32>,
+}
+
+impl StudioSystemCallback {
+    pub fn create(
+        callback: magnus::Value,
+        system: crate::system::Studio,
+        type_: u32,
+        data: Option<crate::bank::Bank>,
+    ) -> Receiver<i32> {
+        let (sender, reciever) = channel();
+
+        let callback = Box::new(Self {
+            callback,
+            system,
+            type_,
+            data,
+            sender,
+        });
+
+        add_callback(callback);
+
+        reciever
+    }
+}
+
+impl Callback for StudioSystemCallback {
+    fn call(&self) {
+        let result = self
+            .callback
+            .funcall("call", (self.system, self.type_, self.data))
+            .map_err(|e| {
+                println!("Warning: {e}");
+                e
+            })
+            .unwrap_or(0);
+
+        self.sender.send(result).unwrap();
+    }
 }

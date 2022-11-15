@@ -24,9 +24,9 @@ $call_count = 0
 $old_call_count = 0
 $prc = proc { |a, b, c|
     $call_count += 1
-    puts [a, b, c].inspect
+    # puts [a, b, c].inspect
 
-    nil
+    0
 }
 
 GC.disable
@@ -42,6 +42,4 @@ loop do
     end
 
     sleep(1.0 / 60.0)
-
-    # sleep(1.0 / 60.0)
 end
