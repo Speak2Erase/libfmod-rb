@@ -50,7 +50,27 @@ impl Studio {
             .wrap_fmod()
     }
 
-    opaque_struct_method!(update, Result<(), magnus::Error>;);
+    fn update(&self) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        unsafe extern "C" fn anon(system: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+            Box::into_raw(Box::new(libfmod::Studio::from(system as _).update())) as _
+        }
+
+        unsafe {
+            let box_ptr = rb_sys::rb_thread_call_without_gvl2(
+                Some(anon),
+                self.0.as_mut_ptr() as _,
+                None,
+                std::ptr::null_mut(),
+            );
+
+            let box_: Box<Result<(), libfmod::Error>> = Box::from_raw(box_ptr as _);
+
+            box_.map_err(|e| e.wrap_fmod())
+        }
+    }
+
     opaque_struct_method!(release, Result<(), magnus::Error>;);
     opaque_struct_method!(get_core_system, Result<System, magnus::Error>;);
     opaque_struct_method!(get_event, Result<EventDescription, magnus::Error>; (String: ref));

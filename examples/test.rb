@@ -24,8 +24,6 @@ end
 call_count = 0
 old_call_count = 0
 
-GC.disable
-
 System.set_callback(proc { |a, b, c|
   call_count += 1
   puts [a, b, c].inspect if c
@@ -41,5 +39,5 @@ loop do
     old_call_count = call_count
   end
 
-  sleep(1.0 / 60.0)
+  sleep(1.0 / 120.0)
 end
