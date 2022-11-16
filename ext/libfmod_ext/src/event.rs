@@ -246,14 +246,18 @@ impl EventDescription {
         unsafe {
             use crate::wrap::WrapFMOD;
 
-            let mut array = vec![std::ptr::null_mut(); self.get_instance_count()? as usize];
+            let mut array = Vec::with_capacity(1.max(self.get_instance_count()? as usize));
+            let mut count = 0;
 
             let result = libfmod::ffi::FMOD_Studio_EventDescription_GetInstanceList(
                 self.0.as_mut_ptr(),
                 array.as_mut_ptr(),
-                array.len() as i32,
-                std::ptr::null_mut(),
+                array.capacity() as i32,
+                &mut count as *mut _,
             );
+            //? SAFETY:
+            //? FMOD ensures that count <= capacity.
+            array.set_len(count as _);
 
             match result {
                 libfmod::ffi::FMOD_OK => Ok(array

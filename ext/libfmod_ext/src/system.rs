@@ -20,6 +20,7 @@ use magnus::{Module, RStruct};
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
 use crate::event::EventDescription;
+use crate::vca::Vca;
 use crate::{bank::Bank, callback::StudioSystemCallback};
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
@@ -84,42 +85,153 @@ impl Studio {
     opaque_struct_method!(release, Result<(), magnus::Error>;);
     opaque_struct_method!(get_core_system, Result<System, magnus::Error>;);
     opaque_struct_method!(get_event, Result<EventDescription, magnus::Error>; (String: ref));
+    opaque_struct_method!(get_vca, Result<Vca, magnus::Error>; (String: ref));
     opaque_struct_method!(get_bank, Result<Bank, magnus::Error>; (String: ref));
-    opaque_struct_method!(load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
+    opaque_struct_method!(get_vca_by_id, Result<Vca, magnus::Error>; (RStruct));
+    opaque_struct_method!(get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
+    opaque_struct_method!(get_parameter_description_by_id, Result<RStruct, magnus::Error>; (RStruct));
+    opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
 
-    // libfmod does NOT define this function correctly.
-    // Because of this we have to write it ourselves-
-    fn load_bank_memory(
+    fn get_parameter_label_by_name(
         &self,
-        data: Vec<u8>,
-        mode: &LoadMemoryMode,
-        flags: std::ffi::c_uint,
-    ) -> Result<Bank, magnus::Error> {
-        use crate::wrap::UnwrapFMOD;
-        use crate::wrap::WrapFMOD;
-
+        name: String,
+        labelindex: i32,
+    ) -> Result<String, magnus::Error> {
         unsafe {
-            let mut bank = std::ptr::null_mut();
+            use crate::wrap::WrapFMOD;
 
-            let result = libfmod::ffi::FMOD_Studio_System_LoadBankMemory(
+            let mut retrieved = 0;
+            let name = std::ffi::CString::new(name)
+                .map_err(|e| libfmod::Error::StringNul(e).wrap_fmod())?;
+
+            let result = libfmod::ffi::FMOD_Studio_System_GetParameterLabelByName(
                 self.0.as_mut_ptr(),
-                data.as_ptr() as *const i8,
-                data.len() as i32,
-                mode.unwrap_fmod().into(),
-                flags,
-                &mut bank,
+                name.as_ptr(),
+                labelindex,
+                std::ptr::null_mut(),
+                0,
+                &mut retrieved,
             );
+
             match result {
-                libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
-                error => Err(err_fmod!("", error)),
+                libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
+
+                    match libfmod::ffi::FMOD_Studio_System_GetParameterLabelByName(
+                        self.0.as_mut_ptr(),
+                        name.as_ptr(),
+                        labelindex,
+                        cstr,
+                        retrieved,
+                        &mut retrieved,
+                    ) {
+                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
+                            .into_string()
+                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByName", err)),
+                    }
+                }
+                err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByName", err)),
             }
         }
     }
 
-    opaque_struct_method!(get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_parameter_description_by_id, Result<RStruct, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
+    fn get_parameter_label_by_id(
+        &self,
+        id: RStruct,
+        labelindex: i32,
+    ) -> Result<String, magnus::Error> {
+        unsafe {
+            use crate::wrap::UnwrapFMOD;
+            use crate::wrap::WrapFMOD;
+
+            let mut retrieved = 0;
+            let id: libfmod::ParameterId = id.unwrap_fmod();
+            let id = id.into();
+
+            let result = libfmod::ffi::FMOD_Studio_System_GetParameterLabelByID(
+                self.0.as_mut_ptr(),
+                id,
+                labelindex,
+                std::ptr::null_mut(),
+                0,
+                &mut retrieved,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
+                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
+                        .into_raw();
+
+                    match libfmod::ffi::FMOD_Studio_System_GetParameterLabelByID(
+                        self.0.as_mut_ptr(),
+                        id,
+                        labelindex,
+                        cstr,
+                        retrieved,
+                        &mut retrieved,
+                    ) {
+                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
+                            .into_string()
+                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByID", err)),
+                    }
+                }
+                err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByID", err)),
+            }
+        }
+    }
+
+    opaque_struct_method!(get_parameter_by_id, Result<(f32, f32), magnus::Error>; (RStruct));
+    opaque_struct_method!(set_parameter_by_id, Result<(), magnus::Error>; (RStruct), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_id_with_label, Result<(), magnus::Error>; (RStruct), (String: ref), (bool));
+
+    fn set_parameter_by_ids(
+        &self,
+        ids: magnus::RArray,
+        mut values: Vec<f32>,
+        ignoreseekspeed: bool,
+    ) -> Result<(), magnus::Error> {
+        unsafe {
+            use crate::wrap::UnwrapFMOD;
+
+            let ids: Vec<_> = ids
+                .as_slice()
+                .iter()
+                .map(|id| {
+                    let struct_ = RStruct::from_value(*id).unwrap();
+                    let id: libfmod::ParameterId = struct_.unwrap_fmod();
+                    id.into()
+                })
+                .collect();
+
+            assert_eq!(
+                ids.len(),
+                values.len(),
+                "The two arrays should be the same length"
+            );
+
+            let result = libfmod::ffi::FMOD_Studio_System_SetParametersByIDs(
+                self.0.as_mut_ptr(),
+                ids.as_ptr(),
+                values.as_mut_ptr(),
+                ids.len() as i32,
+                ignoreseekspeed as i32,
+            );
+
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(()),
+                error => Err(err_fmod!("FMOD_Studio_System_SetParametersByIDs", error)),
+            }
+        }
+    }
+
+    opaque_struct_method!(get_parameter_by_name, Result<(f32, f32), magnus::Error>; (String: ref));
+    opaque_struct_method!(set_parameter_by_name, Result<(), magnus::Error>; (String: ref), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_name_with_label, Result<(), magnus::Error>; (String: ref), (String: ref), (bool));
+
     opaque_struct_method!(lookup_id, Result<RStruct, magnus::Error>; (String: ref));
 
     fn lookup_path(&self, id: RStruct) -> Result<String, magnus::Error> {
@@ -177,6 +289,36 @@ impl Studio {
     opaque_struct_method!(set_listener_attributes, Result<(), magnus::Error>; (i32), (RStruct), (Option<RStruct>));
     opaque_struct_method!(get_listener_weight, Result<f32, magnus::Error>; (i32));
     opaque_struct_method!(set_listener_weight, Result<(), magnus::Error>; (i32), (f32));
+    opaque_struct_method!(load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
+
+    // libfmod does NOT define this function correctly.
+    // Because of this we have to write it ourselves-
+    fn load_bank_memory(
+        &self,
+        data: Vec<u8>,
+        mode: &LoadMemoryMode,
+        flags: std::ffi::c_uint,
+    ) -> Result<Bank, magnus::Error> {
+        use crate::wrap::UnwrapFMOD;
+        use crate::wrap::WrapFMOD;
+
+        unsafe {
+            let mut bank = std::ptr::null_mut();
+
+            let result = libfmod::ffi::FMOD_Studio_System_LoadBankMemory(
+                self.0.as_mut_ptr(),
+                data.as_ptr() as *const i8,
+                data.len() as i32,
+                mode.unwrap_fmod().into(),
+                flags,
+                &mut bank,
+            );
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
+                error => Err(err_fmod!("", error)),
+            }
+        }
+    }
 
     opaque_struct_method!(get_bank_count, Result<i32, magnus::Error>;);
 
@@ -184,14 +326,18 @@ impl Studio {
         unsafe {
             use crate::wrap::WrapFMOD;
 
-            let mut array = vec![std::ptr::null_mut(); self.get_bank_count()? as usize];
+            let mut array = Vec::with_capacity(1.max(self.get_bank_count()? as usize));
+            let mut count = 0;
 
             let result = libfmod::ffi::FMOD_Studio_System_GetBankList(
                 self.0.as_mut_ptr(),
                 array.as_mut_ptr(),
-                array.len() as i32,
-                std::ptr::null_mut(),
+                array.capacity() as i32,
+                &mut count as *mut _,
             );
+            //? SAFETY:
+            //? FMOD ensures that count <= capacity.
+            array.set_len(count as _);
 
             match result {
                 libfmod::ffi::FMOD_OK => Ok(array
@@ -204,10 +350,45 @@ impl Studio {
     }
 
     opaque_struct_method!(get_parameter_description_count, Result<i32, magnus::Error>;);
+
+    fn get_parameter_description_list(&self) -> Result<Vec<RStruct>, magnus::Error> {
+        unsafe {
+            use crate::wrap::WrapFMOD;
+
+            let mut array =
+                Vec::with_capacity(1.max(self.get_parameter_description_count()? as usize));
+            let mut count = 0;
+
+            let result = libfmod::ffi::FMOD_Studio_System_GetParameterDescriptionList(
+                self.0.as_mut_ptr(),
+                array.as_mut_ptr(),
+                array.capacity() as i32,
+                &mut count as *mut _,
+            );
+            //? SAFETY:
+            //? FMOD ensures that count <= capacity.
+            array.set_len(count as _);
+
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(array
+                    .into_iter()
+                    .map(|e| {
+                        libfmod::ParameterDescription::try_from(e)
+                            .unwrap()
+                            .wrap_fmod()
+                    })
+                    .collect()),
+                error => Err(err_fmod!(
+                    "FMOD_Studio_System_GetParameterDescriptionList",
+                    error
+                )),
+            }
+        }
+    }
+
     opaque_struct_method!(get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
     opaque_struct_method!(get_buffer_usage, Result<RStruct, magnus::Error>;);
     opaque_struct_method!(reset_buffer_usage, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
 
     // This function is a doozy.
     fn set_callback(
@@ -254,6 +435,8 @@ impl Studio {
             .map_err(|e| e.wrap_fmod())
     }
 
+    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
+
     bind_fn! {
         Studio, "System";
         (create, singleton_method, 0),
@@ -265,13 +448,24 @@ impl Studio {
         (release, method, 0),
         (get_core_system, method, 0),
         (get_event, method, 1),
+        (get_vca, method, 1),
         (get_bank, method, 1),
         (load_bank_file, method, 2),
         (load_bank_memory, method, 3),
         (get_event_by_id, method, 1),
+        (get_vca_by_id, method, 1),
         (get_bank_by_id, method, 1),
         (get_parameter_description_by_id, method, 1),
         (get_parameter_description_by_name, method, 1),
+        (get_parameter_label_by_name, method, 2),
+        (get_parameter_label_by_id, method, 2),
+        (get_parameter_by_id, method, 1),
+        (set_parameter_by_id, method, 3),
+        (set_parameter_by_id_with_label, method, 3),
+        (set_parameter_by_ids, method, 3),
+        (get_parameter_by_name, method, 1),
+        (set_parameter_by_name, method, 3),
+        (set_parameter_by_name_with_label, method, 3),
         (lookup_id, method, 1),
         (lookup_path, method, 1),
         (unload_all, method, 0),
@@ -288,6 +482,7 @@ impl Studio {
         (get_listener_weight, method, 1),
         (set_listener_weight, method, 2),
         (get_parameter_description_count, method, 0),
+        (get_parameter_description_list, method, 0),
         (get_cpu_usage, method, 0),
         (get_buffer_usage, method, 0),
         (reset_buffer_usage, method, 0),

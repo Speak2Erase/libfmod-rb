@@ -59,6 +59,8 @@ You can even pass them to FMOD, provided all the fields are the correct type.
 
 Callbacks are queued and run in a Ruby event thread. The event thread spawns a new Ruby thread to run your callback. Callbacks block the FMOD callback thread until finished.
 
+The callback thread is exposed via the `FMOD::EventThread` constant.
+
 ## Detailed explanation
 
 See [this](https://www.burgestrand.se/articles/asynchronous-callbacks-in-ruby-c-extensions/) for a very 'detailed' information. 

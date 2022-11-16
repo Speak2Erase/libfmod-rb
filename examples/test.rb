@@ -3,6 +3,8 @@
 
 require "libfmod"
 
+puts FMOD::EventThread
+
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
@@ -21,23 +23,12 @@ Master.get_event_list.each do |e|
   end
 end
 
-call_count = 0
-old_call_count = 0
-
-System.set_callback(proc { |a, b, c|
-  call_count += 1
-  puts [a, b, c].inspect if c
-
-  0
-}, 0xFFFFFFFF)
+System.get_parameter_description_list.each do |p|
+  puts p
+end
 
 loop do
   System.update
-
-  if old_call_count != call_count
-    puts "I've been called #{call_count} time(s)"
-    old_call_count = call_count
-  end
 
   sleep(1.0 / 60.0)
 end

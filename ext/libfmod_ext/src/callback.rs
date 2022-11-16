@@ -97,6 +97,7 @@ pub unsafe extern "C" fn callback_thread(_: *mut c_void) -> u64 {
             // And then we spawn a thread to run the callback so we don't block this one.
             rb_sys::rb_thread_create(Some(call_callback), callback as _);
         } else {
+            println!("Callback EventThread termination requested");
             break;
         }
     }

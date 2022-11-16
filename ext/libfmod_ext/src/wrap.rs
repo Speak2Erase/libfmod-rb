@@ -34,6 +34,7 @@ basic_unwrap_impl!(std::ffi::c_uint);
 basic_unwrap_impl!(i32);
 basic_unwrap_impl!(u16);
 basic_unwrap_impl!(f32);
+basic_unwrap_impl!(u64);
 basic_unwrap_impl!(bool);
 
 impl<T, TUnwrap> UnwrapFMOD<Option<TUnwrap>> for Option<T>
@@ -94,6 +95,7 @@ macro_rules! tuple_wrap_impl {
     };
 }
 
+basic_wrap_impl!(u64);
 basic_wrap_impl!(u32);
 basic_wrap_impl!(u16);
 basic_wrap_impl!(i32);

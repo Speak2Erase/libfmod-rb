@@ -17,7 +17,7 @@
 
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
-use crate::{enums::LoadingState, err_fmod, event::EventDescription};
+use crate::{enums::LoadingState, err_fmod, event::EventDescription, vca::Vca};
 
 opaque_struct!(Bank, "Studio", "Bank");
 
@@ -122,14 +122,18 @@ impl Bank {
         unsafe {
             use crate::wrap::WrapFMOD;
 
-            let mut array = vec![std::ptr::null_mut(); self.get_event_count()? as usize];
+            let mut array = Vec::with_capacity(1.max(self.get_event_count()? as usize));
+            let mut count = 0;
 
             let result = libfmod::ffi::FMOD_Studio_Bank_GetEventList(
                 self.0.as_mut_ptr(),
                 array.as_mut_ptr(),
-                array.len() as i32,
-                std::ptr::null_mut(),
+                array.capacity() as i32,
+                &mut count as *mut _,
             );
+            //? SAFETY:
+            //? FMOD ensures that count <= capacity.
+            array.set_len(count as _);
 
             match result {
                 libfmod::ffi::FMOD_OK => Ok(array
@@ -143,6 +147,33 @@ impl Bank {
 
     opaque_struct_method!(get_bus_count, Result<i32, magnus::Error>;);
     opaque_struct_method!(get_vca_count, Result<i32, magnus::Error>;);
+
+    fn get_vca_list(&self) -> Result<Vec<Vca>, magnus::Error> {
+        unsafe {
+            use crate::wrap::WrapFMOD;
+
+            let mut array = Vec::with_capacity(1.max(self.get_event_count()? as usize));
+            let mut count = 0;
+
+            let result = libfmod::ffi::FMOD_Studio_Bank_GetVCAList(
+                self.0.as_mut_ptr(),
+                array.as_mut_ptr(),
+                array.capacity() as i32,
+                &mut count as *mut _,
+            );
+            //? SAFETY:
+            //? FMOD ensures that count <= capacity.
+            array.set_len(count as _);
+
+            match result {
+                libfmod::ffi::FMOD_OK => Ok(array
+                    .into_iter()
+                    .map(|e| libfmod::Vca::from(e).wrap_fmod())
+                    .collect()),
+                error => Err(err_fmod!("FMOD_Studio_Bank_GetVCAList", error)),
+            }
+        }
+    }
 
     bind_fn! {
         Bank, "Bank";
@@ -159,7 +190,8 @@ impl Bank {
         (get_event_count, method, 0),
         (get_event_list, method, 0),
         (get_bus_count, method, 0),
-        (get_vca_count, method, 0)
+        (get_vca_count, method, 0),
+        (get_vca_list, method, 0)
     }
 }
 
