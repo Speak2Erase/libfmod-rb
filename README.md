@@ -1,6 +1,8 @@
 # libfmod
 High level Ruby bindings to the FMOD and FMOD Studio libraries.
 
+---
+
 # General overview and important details
 
 Functions will raise errors if FMOD does not return an `FMOD_OK` from a function. This is unlike the old ModShot FMOD bindings which returned the result of a function as the last return value. 
@@ -50,11 +52,17 @@ eventinstance.set_3d_attributes(struct)
 FMOD has a lot of structs, a lot of which have private fields (opaque structs). You cannot directly instantiate these with the exception of `System`.
 
 However, there are some with public fields (Such as `Guid` or `Vector`). 
-Each of those structs is actually respresented in Ruby by a `Struct`, which means you can instantiate them freely! You can even pass them to FMOD.
+Each of those structs is actually respresented in Ruby by a `Struct`, which means you can instantiate them freely! 
+You can even pass them to FMOD, provided all the fields are the correct type.
 
 # Callbacks
 
-Callbacks run in an event thread. See [this](https://www.burgestrand.se/articles/asynchronous-callbacks-in-ruby-c-extensions/) for 'detailed' information. 
+Callbacks are queued and run in a Ruby event thread. The event thread spawns a new Ruby thread to run your callback. Callbacks block the FMOD callback thread until finished.
+
+## Detailed explanation
+
+See [this](https://www.burgestrand.se/articles/asynchronous-callbacks-in-ruby-c-extensions/) for a very 'detailed' information. 
+
 Ruby has this nasty beast called the `GVL` which prevents Ruby code from being truly concurrent (Ractors are an exception). This library has to fight with the GVL and run your callbacks on Ruby's terms.
 
 This has some interesting consequences. 
@@ -69,6 +77,10 @@ Ractors do not really work to skirt around this problem. Callbacks would be run 
 I've tried using Ractors at scale in other projects, and they are not fun to work with. Hopefully when they get stabilized these issues will be fixable, but until then, oh well.
 
 If this **really** matters and you really need to use FMOD callbacks to manipulate sound data or something, why are you using Ruby in the first place??
+
+## Diagram
+
+![Callback diagram](media/Callback_flow.svg)
 
 # User data
 

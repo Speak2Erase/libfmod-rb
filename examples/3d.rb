@@ -48,14 +48,15 @@ Thread.abort_on_exception = true
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
-Master = System.load_bank_file("spec/media/Master.bank", 0)
-Strings = System.load_bank_file("spec/media/Master.strings.bank", 0)
-Vehicles = System.load_bank_file("spec/media/Vehicles.bank", 0)
+Master = System.load_bank_file("media/Master.bank", 0)
+Strings = System.load_bank_file("media/Master.strings.bank", 0)
+Vehicles = System.load_bank_file("media/Vehicles.bank", 0)
 
 event_description = System.get_event("event:/Vehicles/Ride-on Mower")
 
 instance = event_description.create_instance
-instance.set_parameter_by_name("RPM", 650, false)
+rpm = 650
+instance.set_parameter_by_name("RPM", rpm, false)
 instance.start
 
 attributes, _vector = System.get_listener_attributes(0)
@@ -86,6 +87,12 @@ while $char != "q"
   when "d"
     attributes.position.x += 1.0
     instance.set_3d_attributes(attributes)
+  when "e"
+    rpm -= 5
+    instance.set_parameter_by_name("RPM", rpm, false)
+  when "r"
+    rpm += 5
+    instance.set_parameter_by_name("RPM", rpm, false)
   end
 
   update_screen_position(attributes.position)
@@ -95,6 +102,8 @@ while $char != "q"
   print "==================================================\e[K\n"
   print "#{$buffer}\e[K\n"
   print "Use the arrow keys (w, a, s, d) to control the event position\e[K\n"
+  print "Use e and r to change RPM\e[K\n"
+  print "RPM: #{rpm}\e[K\n"
   print "Press q to quit\e[K\n"
 
   sleep(1.0 / 30.0)

@@ -6,8 +6,8 @@ require "libfmod"
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
-Master = System.load_bank_file("spec/media/Master.bank", 0)
-Strings = System.load_bank_file("spec/media/Master.strings.bank", 0)
+Master = System.load_bank_file("media/Master.bank", 0)
+Strings = System.load_bank_file("media/Master.strings.bank", 0)
 puts Master.get_path
 puts Strings.get_path
 

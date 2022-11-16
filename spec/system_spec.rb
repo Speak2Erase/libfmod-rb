@@ -17,7 +17,7 @@ describe FMOD::Studio::System do
 
     describe "load_bank_file" do
       it "loads banks from files" do
-        expect(@system.load_bank_file("spec/media/Master.bank", 0))
+        expect(@system.load_bank_file("media/Master.bank", 0))
       end
     end
 
@@ -29,7 +29,7 @@ describe FMOD::Studio::System do
 
     describe "load_bank_memory" do
       it "loads banks from memory" do
-        bank_data = File.read("spec/media/Master.bank").bytes
+        bank_data = File.read("media/Master.bank").bytes
         expect(@system.load_bank_memory(bank_data, FMOD::Enum::LoadMemoryMode::Memory, 0))
       end
     end
