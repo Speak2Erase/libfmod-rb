@@ -61,12 +61,18 @@ impl Studio {
         }
 
         unsafe {
-            let box_ptr = rb_sys::rb_thread_call_without_gvl2(
+            let box_ptr = rb_sys::rb_thread_call_without_gvl(
                 Some(anon),
                 self.0.as_mut_ptr() as _,
                 None,
                 std::ptr::null_mut(),
             );
+
+            if box_ptr.is_null() {
+                return Err(magnus::Error::runtime_error(
+                    "System::update gvl return value is null. Possible corruption has occured.",
+                ));
+            }
 
             // Get back the result.
             let box_: Box<Result<(), libfmod::Error>> = Box::from_raw(box_ptr as _);

@@ -66,9 +66,7 @@ unsafe extern "C" fn stop_waiting(_data: *mut c_void) {
 
 fn add_callback(callback: BoxedCallback) {
     #[cfg(feature = "track-callbacks")]
-    {
-        println!("Adding callback to queue")
-    }
+    println!("Adding callback to queue");
 
     CHANNEL.0.send(Some(callback)).unwrap();
 }
