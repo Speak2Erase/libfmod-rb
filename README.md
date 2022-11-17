@@ -73,6 +73,8 @@ Because Ruby only runs 1 thread at a time, unless you initialize FMOD to not be 
 However, you *can* initialize FMOD to not be async, and it will run your callbacks during `System::update`. Your callbacks will be called faster but at the cost of 'blocking' the main thread.
 This works because `System::update` is actually one of those special functions that releases the GVL, allowing other Ruby threads to run while the thread that called `System::update` is paused.
 
+A serious side effect of this is that if an FMOD function blocks the main thread *without* releasing the GVL **everything will deadlock.** I found this out the hard way.
+
 **If you are running async FMOD and your main thread never sleeps callbacks will be run very slowly, or not at all.**
 
 Ractors do not really work to skirt around this problem. Callbacks would be run *inside* the Ractor and still have the same problem. Callbacks would need to run on a unique Ractor to solve this, and there is no way to do that in Ruby at the moment. Also, all your callbacks would be horribly gimped and hard to work with since you'd need to use a *lot* of message passing.

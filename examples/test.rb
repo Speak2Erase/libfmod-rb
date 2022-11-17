@@ -8,6 +8,12 @@ puts FMOD::EventThread
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
+System.set_callback(proc {
+  puts "Hi!"
+
+  0
+}, 0xFFFFFFFF)
+
 puts FMOD::Studio.parse_id("{00000000-0000-0000-0000-000000000000}")
 
 Master = System.load_bank_file("media/Master.bank", 0)

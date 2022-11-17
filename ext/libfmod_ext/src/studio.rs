@@ -276,7 +276,34 @@ impl Studio {
     opaque_struct_method!(set_listener_attributes, Result<(), magnus::Error>; (i32), (RStruct), (Option<RStruct>));
     opaque_struct_method!(get_listener_weight, Result<f32, magnus::Error>; (i32));
     opaque_struct_method!(set_listener_weight, Result<(), magnus::Error>; (i32), (f32));
-    opaque_struct_method!(load_bank_file, Result<Bank, magnus::Error>; (String: ref), (std::ffi::c_uint));
+
+    // Because this function *can* be blocking we HAVE to do this to avoid it deadlocking on callbacks.
+    fn load_bank_file(
+        &self,
+        filename: String,
+        flags: std::ffi::c_uint,
+    ) -> Result<Bank, magnus::Error> {
+        unsafe {
+            use crate::wrap::WrapFMOD;
+
+            // Decided to declare a type to get some type checking.
+            // We are casting pointers around and casting them to the wrong value is bad...
+            type Args = (libfmod::Studio, String, std::ffi::c_uint);
+            unsafe extern "C" fn anon(data: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+                let (system, filename, flags) = (data as *mut Args).as_mut().unwrap();
+
+                Box::into_raw(Box::new(system.load_bank_file(filename, *flags))) as _
+            }
+
+            Box::<Result<Bank, libfmod::Error>>::from_raw(rb_sys::rb_thread_call_without_gvl(
+                Some(anon),
+                &mut (self.0, filename, flags) as *mut Args as _,
+                None,
+                std::ptr::null_mut(),
+            ) as *mut _)
+            .map_err(|e| e.wrap_fmod())
+        }
+    }
 
     // libfmod does NOT define this function correctly.
     // Because of this we have to write it ourselves-
