@@ -15,17 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use magnus::{Module, RStruct};
+use magnus::value::BoxValue;
+use magnus::RStruct;
 
 use crate::command_replay::CommandReplay;
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
 use crate::event::EventDescription;
-use crate::gvl::without_gvl_no_ubf;
+use crate::thread::without_gvl_no_ubf;
 use crate::vca::Vca;
 use crate::{bank::Bank, callback::StudioSystemCallback};
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
+
+#[derive(Default)]
+pub struct StudioUserData {
+    pub callback: Option<BoxValue<magnus::Value>>,
+    pub userdata: Option<BoxValue<magnus::Value>>,
+}
 
 opaque_struct!(Studio, "Studio", "System");
 
@@ -269,10 +276,9 @@ impl Studio {
             use crate::wrap::WrapFMOD;
 
             without_gvl_no_ubf(
-                |(system, filename, flags)| system.load_bank_file(&filename, flags),
+                |(system, filename, flags)| system.load_bank_file(&filename, flags).wrap_fmod(),
                 (self.0, filename, flags),
             )
-            .wrap_fmod()
         }
     }
 
@@ -288,20 +294,26 @@ impl Studio {
         use crate::wrap::WrapFMOD;
 
         unsafe {
-            let mut bank = std::ptr::null_mut();
+            without_gvl_no_ubf(
+                |(system, data, mode, flags)| {
+                    let mut bank = std::ptr::null_mut();
 
-            let result = libfmod::ffi::FMOD_Studio_System_LoadBankMemory(
-                self.0.as_mut_ptr(),
-                data.as_ptr() as *const i8,
-                data.len() as i32,
-                mode.unwrap_fmod().into(),
-                flags,
-                &mut bank,
-            );
-            match result {
-                libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
-                error => Err(err_fmod!("FMOD_Studio_System_LoadBankMemory", error)),
-            }
+                    let result = libfmod::ffi::FMOD_Studio_System_LoadBankMemory(
+                        system.as_mut_ptr(),
+                        data.as_ptr() as _,
+                        data.len() as _,
+                        mode.into(),
+                        flags,
+                        &mut bank,
+                    );
+
+                    match result {
+                        libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
+                        error => Err(err_fmod!("FMOD_Studio_System_LoadBankMemory", error)),
+                    }
+                },
+                (self.0, data, mode.unwrap_fmod(), flags),
+            )
         }
     }
 
@@ -383,16 +395,13 @@ impl Studio {
     ) -> Result<(), magnus::Error> {
         use crate::wrap::WrapFMOD;
 
-        // First, we set the callback...
-        magnus::class::object()
-            .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")?
-            .aset("fmod_studio_system_callback", callback)?;
+        Self::get_or_create_user_data(&self.0)?.callback = Some(BoxValue::new(callback));
 
         unsafe extern "C" fn anon(
             system: *mut libfmod::ffi::FMOD_STUDIO_SYSTEM,
             type_: u32,
             data: *mut std::ffi::c_void,
-            _userdata: *mut std::ffi::c_void,
+            userdata: *mut std::ffi::c_void,
         ) -> i32 {
             // Here we create a StudioSystemCallback and wait for it to finish.
             let reciever = StudioSystemCallback::create(
@@ -403,6 +412,7 @@ impl Studio {
                 } else {
                     Some(libfmod::Bank::from(data as _).wrap_fmod())
                 },
+                userdata,
             );
 
             #[cfg(feature = "track-callbacks")]
@@ -421,6 +431,34 @@ impl Studio {
     }
 
     opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
+
+    fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
+        Self::get_or_create_user_data(&self.0)
+            .map(|userdata| userdata.userdata.as_ref().map(|b| **b))
+    }
+
+    fn set_user_data(&self, val: Option<magnus::Value>) -> Result<(), magnus::Error> {
+        Self::get_or_create_user_data(&self.0).map(|userdata| {
+            userdata.userdata = val.map(BoxValue::new);
+        })
+    }
+
+    pub fn get_or_create_user_data(
+        studio: &libfmod::Studio,
+    ) -> Result<&mut StudioUserData, magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        let ptr = studio.get_user_data().map_err(|e| e.wrap_fmod())? as *mut StudioUserData;
+
+        unsafe {
+            Ok(ptr.as_mut().unwrap_or_else(|| {
+                let raw_ptr: *mut StudioUserData = Box::into_raw(Box::default());
+                studio.set_user_data(raw_ptr as *mut _).unwrap();
+
+                raw_ptr.as_mut().unwrap()
+            }))
+        }
+    }
 
     bind_fn! {
         Studio, "System";
@@ -472,7 +510,9 @@ impl Studio {
         (get_buffer_usage, method, 0),
         (reset_buffer_usage, method, 0),
         (get_memory_usage, method, 0),
-        (set_callback, method, 2)
+        (set_callback, method, 2),
+        (get_user_data, method, 0),
+        (set_user_data, method, 1)
     }
 }
 

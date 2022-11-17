@@ -16,10 +16,10 @@
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use magnus::Module;
 use once_cell::sync::Lazy;
 
-use crate::gvl::{spawn_rb_thread, without_gvl};
+use crate::studio::StudioUserData;
+use crate::thread::{spawn_rb_thread, without_gvl};
 
 pub(crate) trait Callback {
     fn call(&self);
@@ -40,9 +40,9 @@ fn add_callback(callback: BoxedCallback) {
 
 // Unsafety galore!
 pub fn callback_thread(_: ()) -> u64 {
-    unsafe {
-        loop {
-            let callback = without_gvl(
+    loop {
+        let callback = unsafe {
+            without_gvl(
                 |_| {
                     #[cfg(feature = "track-callbacks")]
                     println!("Waiting for a callback to run...");
@@ -58,16 +58,23 @@ pub fn callback_thread(_: ()) -> u64 {
                     CHANNEL.0.send(None).unwrap();
                 },
                 (),
-            );
+            )
+        };
 
+        #[cfg(feature = "track-callbacks")]
+        println!("A callback needs to be run.");
+
+        #[cfg(feature = "track-callbacks")]
+        println!("Attempting to spawn a thread for the callback.");
+
+        // Get the callback we need to run.
+        if let Some(callback) = callback {
             #[cfg(feature = "track-callbacks")]
-            println!("A callback needs to be run.");
+            println!("Spawning a thread to run callback");
 
-            // Get the callback we need to run.
-            if let Some(callback) = callback {
-                #[cfg(feature = "track-callbacks")]
-                println!("Spawning a thread to run callback");
-                // We need to box it again to pass it over the ffi boundary...
+            unsafe {
+                // This function handles passing the callback over the ffi boundary.
+                // It boxes it...
                 spawn_rb_thread(
                     |callback| {
                         #[cfg(feature = "track-callbacks")]
@@ -80,10 +87,10 @@ pub fn callback_thread(_: ()) -> u64 {
                     },
                     callback,
                 );
-            } else {
-                println!("Callback EventThread termination requested");
-                break;
             }
+        } else {
+            println!("Callback EventThread termination requested");
+            break;
         }
     }
 
@@ -95,6 +102,7 @@ pub(crate) struct StudioSystemCallback {
     type_: u32,
     data: Option<crate::bank::Bank>,
     sender: Sender<i32>,
+    user_data: &'static mut StudioUserData,
 }
 
 impl StudioSystemCallback {
@@ -102,6 +110,7 @@ impl StudioSystemCallback {
         system: crate::studio::Studio,
         type_: u32,
         data: Option<crate::bank::Bank>,
+        user_data: *mut std::ffi::c_void,
     ) -> Receiver<i32> {
         let (sender, reciever) = bounded(1);
 
@@ -109,8 +118,8 @@ impl StudioSystemCallback {
             system,
             type_,
             data,
-
             sender,
+            user_data: unsafe { (user_data as *mut StudioUserData).as_mut().unwrap() },
         });
 
         #[cfg(feature = "track-callbacks")]
@@ -133,12 +142,20 @@ impl Callback for StudioSystemCallback {
     fn call(&self) {
         #[cfg(feature = "track-callbacks")]
         println!("Running callback...");
-        let result = magnus::class::object()
-            .const_get::<_, magnus::RHash>("FMOD_CALLBACKS")
+        let result = self
+            .user_data
+            .callback
+            .as_ref()
             .unwrap()
-            .aref::<_, magnus::Value>("fmod_studio_system_callback")
-            .unwrap()
-            .funcall("call", (self.system, self.type_, self.data))
+            .funcall(
+                "call",
+                (
+                    self.system,
+                    self.type_,
+                    self.data,
+                    self.user_data.userdata.as_ref().map(|e| **e),
+                ),
+            )
             .map_err(|e| {
                 eprintln!("WARNING RUBY ERROR IN CALLBACK: {e}");
                 e

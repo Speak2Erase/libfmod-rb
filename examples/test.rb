@@ -8,16 +8,24 @@ puts FMOD::EventThread
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
-System.set_callback(proc {
-  puts "Hi!"
+puts System.get_user_data.to_s
+System.set_user_data([
+                       "test",
+                       :this_is_fine,
+                       {
+                         "L" => -> {}
+                       }
+                     ])
 
-  0
-}, 0xFFFFFFFF)
+GC.start
+puts System.get_user_data.to_s
 
 puts FMOD::Studio.parse_id("{00000000-0000-0000-0000-000000000000}")
 
 Master = System.load_bank_file("media/Master.bank", 0)
 Strings = System.load_bank_file("media/Master.strings.bank", 0)
+Vehicles = System.load_bank_memory(File.read("media/Vehicles.bank").bytes, FMOD::Enum::LoadMemoryMode::Memory, 0)
+
 puts Master.get_path
 puts Strings.get_path
 
@@ -34,6 +42,12 @@ end
 System.get_parameter_description_list.each do |p|
   puts p
 end
+
+System.set_callback(proc { |_system, _type, _data, userdata|
+  puts userdata.to_s
+
+  0
+}, 0xFFFFFFFF)
 
 loop do
   System.update
