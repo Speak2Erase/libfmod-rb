@@ -41,21 +41,15 @@ impl Vca {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_VCA_GetPath(
                         self.0.as_mut_ptr(),
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => {
-                            use crate::wrap::WrapFMOD;
-                            std::ffi::CString::from_raw(cstr)
-                                .into_string()
-                                .map_err(|e| libfmod::Error::String(e).wrap_fmod())
-                        }
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!("FMOD_Studio_VCA_GetPath", err)),
                     }
                 }

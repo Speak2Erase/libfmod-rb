@@ -17,6 +17,7 @@
 
 use magnus::{Module, RStruct};
 
+use crate::command_replay::CommandReplay;
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
 use crate::event::EventDescription;
@@ -83,7 +84,6 @@ impl Studio {
     }
 
     opaque_struct_method!(release, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_core_system, Result<System, magnus::Error>;);
     opaque_struct_method!(get_event, Result<EventDescription, magnus::Error>; (String: ref));
     opaque_struct_method!(get_vca, Result<Vca, magnus::Error>; (String: ref));
     opaque_struct_method!(get_bank, Result<Bank, magnus::Error>; (String: ref));
@@ -116,20 +116,17 @@ impl Studio {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_System_GetParameterLabelByName(
                         self.0.as_mut_ptr(),
                         name.as_ptr(),
                         labelindex,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByName", err)),
                     }
                 }
@@ -145,7 +142,6 @@ impl Studio {
     ) -> Result<String, magnus::Error> {
         unsafe {
             use crate::wrap::UnwrapFMOD;
-            use crate::wrap::WrapFMOD;
 
             let mut retrieved = 0;
             let id: libfmod::ParameterId = id.unwrap_fmod();
@@ -162,20 +158,17 @@ impl Studio {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_System_GetParameterLabelByID(
                         self.0.as_mut_ptr(),
                         id,
                         labelindex,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!("FMOD_Studio_System_GetParameterLabelByID", err)),
                     }
                 }
@@ -237,7 +230,6 @@ impl Studio {
     fn lookup_path(&self, id: RStruct) -> Result<String, magnus::Error> {
         unsafe {
             use crate::wrap::UnwrapFMOD;
-            use crate::wrap::WrapFMOD;
 
             let mut retrieved = 0;
             let id: libfmod::Guid = id.unwrap_fmod();
@@ -253,23 +245,17 @@ impl Studio {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_System_LookupPath(
                         self.0.as_mut_ptr(),
                         &id,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
-                        err => Err(err_fmod!(
-                            "FMOD_Studio_EventDescription_GetParameterLabelByID",
-                            err
-                        )),
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
+                        err => Err(err_fmod!("FMOD_Studio_System_LookupPath", err)),
                     }
                 }
                 error => Err(err_fmod!("FMOD_Studio_System_LookupPath", error)),
@@ -282,6 +268,7 @@ impl Studio {
     opaque_struct_method!(flush_sample_loading, Result<(), magnus::Error>;);
     opaque_struct_method!(start_command_capture, Result<(), magnus::Error>; (String: ref), (std::ffi::c_uint));
     opaque_struct_method!(stop_command_capture, Result<(), magnus::Error>;);
+    opaque_struct_method!(load_command_replay, Result<CommandReplay, magnus::Error>; (String: ref), (std::ffi::c_uint));
 
     opaque_struct_method!(get_num_listeners, Result<i32, magnus::Error>;);
     opaque_struct_method!(set_num_listeners, Result<(), magnus::Error>; (i32));
@@ -315,7 +302,7 @@ impl Studio {
             );
             match result {
                 libfmod::ffi::FMOD_OK => Ok(libfmod::Bank::from(bank).wrap_fmod()),
-                error => Err(err_fmod!("", error)),
+                error => Err(err_fmod!("FMOD_Studio_System_LoadBankMemory", error)),
             }
         }
     }
@@ -446,7 +433,6 @@ impl Studio {
         (init, method, 3),
         (update, method, 0),
         (release, method, 0),
-        (get_core_system, method, 0),
         (get_event, method, 1),
         (get_vca, method, 1),
         (get_bank, method, 1),
@@ -473,6 +459,7 @@ impl Studio {
         (flush_sample_loading, method, 0),
         (start_command_capture, method, 2),
         (stop_command_capture, method, 0),
+        (load_command_replay, method, 2),
         (get_bank_count, method, 0),
         (get_bank_list, method, 0),
         (get_num_listeners, method, 0),
@@ -491,19 +478,7 @@ impl Studio {
     }
 }
 
-opaque_struct!(System, "Core", "System");
-
-impl System {
-    bind_fn! {
-        System, "System";
-    }
-}
-
-pub fn bind_system(
-    core: impl magnus::Module,
-    studio: impl magnus::Module,
-) -> Result<(), magnus::Error> {
-    System::bind(core)?;
+pub fn bind_system(studio: impl magnus::Module) -> Result<(), magnus::Error> {
     Studio::bind(studio)?;
 
     Ok(())

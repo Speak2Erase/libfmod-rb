@@ -8,6 +8,8 @@ puts FMOD::EventThread
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
+puts FMOD::Studio.parse_id("{00000000-0000-0000-0000-000000000000}")
+
 Master = System.load_bank_file("media/Master.bank", 0)
 Strings = System.load_bank_file("media/Master.strings.bank", 0)
 puts Master.get_path

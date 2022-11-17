@@ -17,7 +17,10 @@
 
 use magnus::RStruct;
 
-use crate::{enums::ParameterType, transparent_struct};
+use crate::{
+    enums::{InstanceType, ParameterType},
+    transparent_struct,
+};
 
 transparent_struct!(Guid; [data_1: u32, data_2: u16, data_3: u16, data_4: Vec<u8>]);
 
@@ -134,6 +137,17 @@ transparent_struct!(Vector; [x: f32, y: f32, z: f32]);
 transparent_struct!(Attributes3d; [position: RStruct, velocity: RStruct, forward: RStruct, up: RStruct]);
 transparent_struct!(MemoryUsage; [exclusive: i32, inclusive: i32, sampledata: i32]);
 
+transparent_struct!(CommandInfo; [
+    commandname: String,
+    parentcommandindex: i32,
+    framenumber: i32,
+    frametime: f32,
+    instancetype: &InstanceType,
+    outputtype: &InstanceType,
+    instancehandle: u32,
+    outputhandle: u32
+]);
+
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     let module = module.define_module("Struct")?;
 
@@ -149,6 +163,7 @@ pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     bind_vector(module)?;
     bind_attributes3d(module)?;
     bind_memoryusage(module)?;
+    bind_commandinfo(module)?;
 
     Ok(())
 }

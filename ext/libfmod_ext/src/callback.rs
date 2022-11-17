@@ -106,7 +106,7 @@ pub unsafe extern "C" fn callback_thread(_: *mut c_void) -> u64 {
 }
 
 pub(crate) struct StudioSystemCallback {
-    system: crate::system::Studio,
+    system: crate::studio::Studio,
     type_: u32,
     data: Option<crate::bank::Bank>,
     sender: Sender<i32>,
@@ -114,7 +114,7 @@ pub(crate) struct StudioSystemCallback {
 
 impl StudioSystemCallback {
     pub fn create(
-        system: crate::system::Studio,
+        system: crate::studio::Studio,
         type_: u32,
         data: Option<crate::bank::Bank>,
     ) -> Receiver<i32> {

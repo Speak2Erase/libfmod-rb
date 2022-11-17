@@ -46,21 +46,15 @@ impl EventDescription {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_EventDescription_GetPath(
                         self.0.as_mut_ptr(),
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => {
-                            use crate::wrap::WrapFMOD;
-                            std::ffi::CString::from_raw(cstr)
-                                .into_string()
-                                .map_err(|e| libfmod::Error::String(e).wrap_fmod())
-                        }
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!("FMOD_Studio_EventDescription_GetPath", err)),
                     }
                 }
@@ -93,23 +87,17 @@ impl EventDescription {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByIndex(
                         self.0.as_mut_ptr(),
                         index,
                         labelindex,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => {
-                            use crate::wrap::WrapFMOD;
-                            std::ffi::CString::from_raw(cstr)
-                                .into_string()
-                                .map_err(|e| libfmod::Error::String(e).wrap_fmod())
-                        }
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!(
                             "FMOD_Studio_EventDescription_GetParameterLabelByIndex",
                             err
@@ -147,20 +135,17 @@ impl EventDescription {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByName(
                         self.0.as_mut_ptr(),
                         name.as_ptr(),
                         labelindex,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!(
                             "FMOD_Studio_EventDescription_GetParameterLabelByName",
                             err
@@ -182,7 +167,6 @@ impl EventDescription {
     ) -> Result<String, magnus::Error> {
         unsafe {
             use crate::wrap::UnwrapFMOD;
-            use crate::wrap::WrapFMOD;
 
             let mut retrieved = 0;
             let id: libfmod::ParameterId = id.unwrap_fmod();
@@ -199,20 +183,17 @@ impl EventDescription {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_EventDescription_GetParameterLabelByID(
                         self.0.as_mut_ptr(),
                         id,
                         labelindex,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod()),
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!(
                             "FMOD_Studio_EventDescription_GetParameterLabelByID",
                             err

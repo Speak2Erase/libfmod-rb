@@ -45,21 +45,15 @@ impl Bank {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_Bank_GetPath(
                         self.0.as_mut_ptr(),
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => {
-                            use crate::wrap::WrapFMOD;
-                            std::ffi::CString::from_raw(cstr)
-                                .into_string()
-                                .map_err(|e| libfmod::Error::String(e).wrap_fmod())
-                        }
+                        libfmod::ffi::FMOD_OK => Ok(String::from_utf8(buffer).unwrap()),
                         err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
                     }
                 }
@@ -93,25 +87,24 @@ impl Bank {
 
             match result {
                 libfmod::ffi::FMOD_OK | libfmod::ffi::FMOD_ERR_TRUNCATED => {
-                    let cstr = std::ffi::CString::from_vec_unchecked(vec![0; retrieved as usize])
-                        .into_raw();
+                    let mut buffer = vec![0; retrieved as _];
 
                     match libfmod::ffi::FMOD_Studio_Bank_GetStringInfo(
                         self.0.as_mut_ptr(),
                         index,
                         &mut guid,
-                        cstr,
+                        buffer.as_mut_ptr() as *mut _,
                         retrieved,
                         &mut retrieved,
                     ) {
-                        libfmod::ffi::FMOD_OK => std::ffi::CString::from_raw(cstr)
-                            .into_string()
-                            .map_err(|e| libfmod::Error::String(e).wrap_fmod())
-                            .map(|s| (libfmod::Guid::try_from(guid).unwrap().wrap_fmod(), s)),
-                        err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
+                        libfmod::ffi::FMOD_OK => Ok((
+                            libfmod::Guid::try_from(guid).unwrap().wrap_fmod(),
+                            String::from_utf8(buffer).unwrap(),
+                        )),
+                        err => Err(err_fmod!("FMOD_Studio_Bank_GetStringInfo", err)),
                     }
                 }
-                err => Err(err_fmod!("FMOD_Studio_Bank_GetPath", err)),
+                err => Err(err_fmod!("FMOD_Studio_Bank_GetStringInfo", err)),
             }
         }
     }

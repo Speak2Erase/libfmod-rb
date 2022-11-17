@@ -65,6 +65,19 @@ bindable_enum!(
     Stopping
 );
 
+bindable_enum!(
+    InstanceType,
+    None,
+    System,
+    EventDescription,
+    EventInstance,
+    ParameterInstance,
+    Bus,
+    Vca,
+    Bank,
+    CommandReplay
+);
+
 pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
     ChannelControlCallbackType::bind(module)?;
     LoadMemoryMode::bind(module)?;
@@ -74,6 +87,7 @@ pub fn bind_enums(module: impl magnus::Module) -> Result<(), magnus::Error> {
     EventProperty::bind(module)?;
     StopMode::bind(module)?;
     PlaybackState::bind(module)?;
+    InstanceType::bind(module)?;
 
     Ok(())
 }
