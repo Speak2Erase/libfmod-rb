@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms, clippy::all)]
 #![feature(macro_metavar_expr)]
 
+use gvl::spawn_rb_thread;
 use magnus::Module;
 
 mod bank;
@@ -8,6 +9,7 @@ mod bus;
 mod command_replay;
 mod enums;
 mod event;
+mod gvl;
 mod studio;
 mod transparent_struct;
 mod vca;
@@ -56,12 +58,8 @@ fn init() -> Result<(), magnus::Error> {
     enums::bind_enums(enums)?;
     transparent_struct::bind(top)?;
 
-    let callback_thread = unsafe {
-        magnus::rb_sys::value_from_raw(rb_sys::rb_thread_create(
-            Some(callback::callback_thread),
-            std::ptr::null_mut(),
-        ))
-    };
+    let callback_thread =
+        unsafe { magnus::rb_sys::value_from_raw(spawn_rb_thread(callback::callback_thread, ())) };
     top.const_set("EventThread", callback_thread)?;
 
     Ok(())

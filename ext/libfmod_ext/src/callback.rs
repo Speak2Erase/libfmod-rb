@@ -15,11 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::ffi::c_void;
-
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use magnus::Module;
 use once_cell::sync::Lazy;
+
+use crate::gvl::{spawn_rb_thread, without_gvl};
 
 pub(crate) trait Callback {
     fn call(&self);
@@ -31,39 +31,6 @@ type CallbackReceiver = Receiver<Option<BoxedCallback>>;
 
 static CHANNEL: Lazy<(CallbackSender, CallbackReceiver)> = Lazy::new(unbounded);
 
-unsafe extern "C" fn call_callback(callback: *mut c_void) -> u64 {
-    // Here we get the callback from the pointer (Remember its double boxed so we can pass it around)
-    let callback = *Box::from_raw(callback as *mut BoxedCallback);
-
-    #[cfg(feature = "track-callbacks")]
-    println!("Attempting ro run callback...");
-    // ..Then we call it.
-    callback.call();
-    // The callback should be dropped and we don't have to worry about a memory leak. Hooray!
-
-    rb_sys::Qnil.into()
-}
-
-unsafe extern "C" fn wait_for_callback(_data: *mut c_void) -> *mut c_void {
-    #[cfg(feature = "track-callbacks")]
-    println!("Waiting for a callback to run...");
-
-    let callback = CHANNEL.1.recv().unwrap();
-
-    #[cfg(feature = "track-callbacks")]
-    println!("A callback needs to be run.");
-
-    Box::into_raw(Box::new(callback)) as *mut _
-}
-
-unsafe extern "C" fn stop_waiting(_data: *mut c_void) {
-    #[cfg(feature = "track-callbacks")]
-    println!("Aborting callback thread...");
-
-    // Send a `None` to let notify that we're aborting.
-    CHANNEL.0.send(None).unwrap();
-}
-
 fn add_callback(callback: BoxedCallback) {
     #[cfg(feature = "track-callbacks")]
     println!("Adding callback to queue");
@@ -72,33 +39,51 @@ fn add_callback(callback: BoxedCallback) {
 }
 
 // Unsafety galore!
-pub unsafe extern "C" fn callback_thread(_: *mut c_void) -> u64 {
-    loop {
-        // Wait until we need to run a callback.
-        // This runs wait_for_callback and returns the result it returns.
-        let callback = rb_sys::rb_thread_call_without_gvl(
-            Some(wait_for_callback),
-            std::ptr::null_mut(),
-            Some(stop_waiting),
-            std::ptr::null_mut(),
-        );
+pub fn callback_thread(_: ()) -> u64 {
+    unsafe {
+        loop {
+            let callback = without_gvl(
+                |_| {
+                    #[cfg(feature = "track-callbacks")]
+                    println!("Waiting for a callback to run...");
 
-        //? SAFETY:
-        //? BoxedCallback is a trait object so we need to Box it to pass it around over the ffi boundary.
-        //? The Box we get from wait_for_callback should ALWAYS be valid as it returns a pointer from Box::raw.
-        let callback = *Box::from_raw(callback as *mut Option<BoxedCallback>);
+                    CHANNEL.1.recv().unwrap()
+                },
+                (),
+                |_| {
+                    #[cfg(feature = "track-callbacks")]
+                    println!("Aborting callback thread...");
 
-        // Get the callback we need to run.
-        if let Some(callback) = callback {
+                    // Send a `None` to let notify that we're aborting.
+                    CHANNEL.0.send(None).unwrap();
+                },
+                (),
+            );
+
             #[cfg(feature = "track-callbacks")]
-            println!("Spawning a thread to run callback");
-            // We need to box it again to pass it over the ffi boundary...
-            let callback = Box::into_raw(Box::new(callback));
-            // And then we spawn a thread to run the callback so we don't block this one.
-            rb_sys::rb_thread_create(Some(call_callback), callback as _);
-        } else {
-            println!("Callback EventThread termination requested");
-            break;
+            println!("A callback needs to be run.");
+
+            // Get the callback we need to run.
+            if let Some(callback) = callback {
+                #[cfg(feature = "track-callbacks")]
+                println!("Spawning a thread to run callback");
+                // We need to box it again to pass it over the ffi boundary...
+                spawn_rb_thread(
+                    |callback| {
+                        #[cfg(feature = "track-callbacks")]
+                        println!("Attempting ro run callback...");
+                        // ..Then we call it.
+                        callback.call();
+                        // The callback should be dropped and we don't have to worry about a memory leak. Hooray!
+
+                        rb_sys::Qnil.into()
+                    },
+                    callback,
+                );
+            } else {
+                println!("Callback EventThread termination requested");
+                break;
+            }
         }
     }
 

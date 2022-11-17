@@ -21,6 +21,7 @@ use crate::command_replay::CommandReplay;
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
 use crate::event::EventDescription;
+use crate::gvl::without_gvl_no_ubf;
 use crate::vca::Vca;
 use crate::{bank::Bank, callback::StudioSystemCallback};
 #[allow(unused_imports)]
@@ -55,31 +56,12 @@ impl Studio {
     // We update the system without the GVL so synchronous updates work.
     // If we did not, this would block all threads (remember ruby doesn't run threads in parallel) including the one responsible for running callbacks.
     fn update(&self) -> Result<(), magnus::Error> {
-        use crate::wrap::WrapFMOD;
-
-        unsafe extern "C" fn anon(system: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
-            // Allocate a box and pass it back to avoid use after free.
-            Box::into_raw(Box::new(libfmod::Studio::from(system as _).update())) as _
-        }
-
         unsafe {
-            let box_ptr = rb_sys::rb_thread_call_without_gvl(
-                Some(anon),
-                self.0.as_mut_ptr() as _,
-                None,
-                std::ptr::null_mut(),
-            );
+            use crate::wrap::WrapFMOD;
 
-            if box_ptr.is_null() {
-                return Err(magnus::Error::runtime_error(
-                    "System::update gvl return value is null. Possible corruption has occured.",
-                ));
-            }
+            let result = without_gvl_no_ubf(|system| system.update(), self.0);
 
-            // Get back the result.
-            let box_: Box<Result<(), libfmod::Error>> = Box::from_raw(box_ptr as _);
-
-            box_.map_err(|e| e.wrap_fmod())
+            result.map_err(|e| e.wrap_fmod())
         }
     }
 
@@ -286,22 +268,11 @@ impl Studio {
         unsafe {
             use crate::wrap::WrapFMOD;
 
-            // Decided to declare a type to get some type checking.
-            // We are casting pointers around and casting them to the wrong value is bad...
-            type Args = (libfmod::Studio, String, std::ffi::c_uint);
-            unsafe extern "C" fn anon(data: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
-                let (system, filename, flags) = (data as *mut Args).as_mut().unwrap();
-
-                Box::into_raw(Box::new(system.load_bank_file(filename, *flags))) as _
-            }
-
-            Box::<Result<Bank, libfmod::Error>>::from_raw(rb_sys::rb_thread_call_without_gvl(
-                Some(anon),
-                &mut (self.0, filename, flags) as *mut Args as _,
-                None,
-                std::ptr::null_mut(),
-            ) as *mut _)
-            .map_err(|e| e.wrap_fmod())
+            without_gvl_no_ubf(
+                |(system, filename, flags)| system.load_bank_file(&filename, flags),
+                (self.0, filename, flags),
+            )
+            .wrap_fmod()
         }
     }
 
