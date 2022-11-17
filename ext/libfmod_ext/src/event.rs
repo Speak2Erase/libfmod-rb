@@ -15,14 +15,111 @@
 // You should have received a copy of the GNU General Public License
 // along with libfmod.  If not, see <http://www.gnu.org/licenses/>.
 
-use magnus::RStruct;
+use magnus::{value::BoxValue, RStruct};
 
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
 use crate::{
+    callback::EventCallback,
     enums::{EventProperty, LoadingState, PlaybackState, StopMode},
     err_fmod,
 };
+
+#[derive(Default)]
+pub struct EventUserData {
+    pub callback: Option<BoxValue<magnus::Value>>,
+    pub userdata: Option<BoxValue<magnus::Value>>,
+}
+
+#[derive(Clone)]
+pub enum EventCallbackParameterType {
+    // TODO: This needs FMOD_SOUND but we do not have core bindings yet.
+    // ProgrammerSound(libfmod::ProgrammerSoundProperties),
+    // TODO: This needs FMOD_DSP but again we do not have that yet.
+    // PluginProperties(libfmod::PluginInstanceProperties)
+    TimelineMarker(libfmod::TimelineMarkerProperties),
+    TimelineBeat(libfmod::TimelineBeatProperties),
+    // TODO: This needs FMOD_SOUND.
+    // Sound(libfmod::Sound),
+    EventInstance(libfmod::EventInstance),
+    TimelineNested(libfmod::TimelineNestedBeatProperties),
+    None,
+}
+
+impl crate::wrap::WrapFMOD<magnus::Value> for EventCallbackParameterType {
+    fn wrap_fmod(self) -> magnus::Value {
+        match self {
+            Self::TimelineNested(m) => *m.wrap_fmod(),
+            Self::TimelineBeat(m) => *m.wrap_fmod(),
+            Self::TimelineMarker(m) => *m.wrap_fmod(),
+            Self::EventInstance(e) => magnus::Value::from(e.wrap_fmod()),
+            Self::None => *magnus::QNIL,
+        }
+    }
+}
+
+unsafe extern "C" fn event_callback(
+    type_: u32,
+    instance: *mut libfmod::ffi::FMOD_STUDIO_EVENTINSTANCE,
+    data: *mut std::ffi::c_void,
+) -> i32 {
+    use crate::wrap::WrapFMOD;
+    let instance = libfmod::EventInstance::from(instance);
+
+    // Event instances do not (as far as I am aware) share user data with their parents.
+    // This means in the callback if an event instance does not have user data set it will try and grab it from its description.
+    // If the description does not have user data, something has gone wrong and we just panic
+    let user_data = (instance.get_user_data().unwrap() as *mut EventUserData)
+        .as_mut()
+        .unwrap_or_else(|| {
+            (instance.get_description().unwrap().get_user_data().unwrap() as *mut EventUserData)
+                .as_mut()
+                .expect("Both event instance and description do not have user data (no callback?)")
+        });
+
+    use libfmod::ffi::*;
+    let parameter = match type_ {
+        FMOD_STUDIO_EVENT_CALLBACK_CREATED
+        | FMOD_STUDIO_EVENT_CALLBACK_STARTING
+        | FMOD_STUDIO_EVENT_CALLBACK_STARTED
+        | FMOD_STUDIO_EVENT_CALLBACK_RESTARTED
+        | FMOD_STUDIO_EVENT_CALLBACK_STOPPED
+        | FMOD_STUDIO_EVENT_CALLBACK_START_FAILED
+        | FMOD_STUDIO_EVENT_CALLBACK_REAL_TO_VIRTUAL
+        | FMOD_STUDIO_EVENT_CALLBACK_VIRTUAL_TO_REAL => EventCallbackParameterType::None,
+        FMOD_STUDIO_EVENT_CALLBACK_TIMELINE_MARKER => EventCallbackParameterType::TimelineMarker(
+            libfmod::TimelineMarkerProperties::try_from(
+                *(data as *mut FMOD_STUDIO_TIMELINE_MARKER_PROPERTIES),
+            )
+            .unwrap(),
+        ),
+        FMOD_STUDIO_EVENT_CALLBACK_TIMELINE_BEAT => EventCallbackParameterType::TimelineBeat(
+            libfmod::TimelineBeatProperties::try_from(
+                *(data as *mut FMOD_STUDIO_TIMELINE_BEAT_PROPERTIES),
+            )
+            .unwrap(),
+        ),
+        FMOD_STUDIO_EVENT_CALLBACK_START_EVENT_COMMAND => {
+            EventCallbackParameterType::EventInstance(libfmod::EventInstance::from(data as *mut _))
+        }
+        FMOD_STUDIO_EVENT_CALLBACK_NESTED_TIMELINE_BEAT => {
+            EventCallbackParameterType::TimelineNested(
+                libfmod::TimelineNestedBeatProperties::try_from(
+                    *(data as *mut FMOD_STUDIO_TIMELINE_NESTED_BEAT_PROPERTIES),
+                )
+                .unwrap(),
+            )
+        }
+        _ => todo!(),
+    };
+
+    let reciever = EventCallback::create(instance.wrap_fmod(), type_, parameter, user_data);
+
+    reciever.recv().unwrap_or_else(|e| {
+        println!("Warning callback recv error: {e}");
+        0
+    })
+}
 
 opaque_struct!(EventDescription, "Studio", "EventDescription");
 
@@ -258,6 +355,45 @@ impl EventDescription {
     opaque_struct_method!(get_sample_loading_state, Result<LoadingState, magnus::Error>;);
     opaque_struct_method!(release_all_instances, Result<(), magnus::Error>;);
 
+    fn set_callback(
+        &self,
+        callback: magnus::Value,
+        mask: std::ffi::c_uint,
+    ) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        self.get_or_create_user_data()?.callback = Some(BoxValue::new(callback));
+
+        self.0.set_callback(Some(event_callback), mask).wrap_fmod()
+    }
+
+    fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
+        self.get_or_create_user_data()
+            .map(|userdata| userdata.userdata.as_ref().map(|b| **b))
+    }
+
+    fn set_user_data(&self, val: Option<magnus::Value>) -> Result<(), magnus::Error> {
+        self.get_or_create_user_data().map(|userdata| {
+            userdata.userdata = val.map(BoxValue::new);
+        })
+    }
+
+    // This function works just fine here but it.. It'll get interesting for event instances.
+    fn get_or_create_user_data(&self) -> Result<&mut EventUserData, magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        let ptr = self.0.get_user_data().map_err(|e| e.wrap_fmod())? as *mut EventUserData;
+
+        unsafe {
+            Ok(ptr.as_mut().unwrap_or_else(|| {
+                let raw_ptr: *mut EventUserData = Box::into_raw(Box::default());
+                self.0.set_user_data(raw_ptr as *mut _).unwrap();
+
+                &mut *raw_ptr
+            }))
+        }
+    }
+
     bind_fn! {
         EventDescription, "EventDescription";
         (is_valid, method, 0),
@@ -288,7 +424,10 @@ impl EventDescription {
         (load_sample_data, method, 0),
         (unload_sample_data, method, 0),
         (get_sample_loading_state, method, 0),
-        (release_all_instances, method, 0)
+        (release_all_instances, method, 0),
+        (get_user_data, method, 0),
+        (set_user_data, method, 1),
+        (set_callback, method, 2)
     }
 }
 
@@ -376,6 +515,63 @@ impl EventInstance {
     opaque_struct_method!(get_cpu_usage, Result<(u32, u32), magnus::Error>;);
     opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
 
+    fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
+        self.get_or_create_user_data()
+            .map(|userdata| userdata.userdata.as_ref().map(|b| **b))
+    }
+
+    fn set_user_data(&self, val: Option<magnus::Value>) -> Result<(), magnus::Error> {
+        self.get_or_create_user_data().map(|userdata| {
+            userdata.userdata = val.map(BoxValue::new);
+        })
+    }
+
+    // This is complicated, let me run you through my logic.
+    fn get_or_create_user_data(&self) -> Result<&mut EventUserData, magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        // We get our user data.
+        let ptr = self.0.get_user_data().map_err(|e| e.wrap_fmod())? as *mut EventUserData;
+
+        unsafe {
+            // If it's null, we create a new instance and set the user data for this object.
+            Ok(ptr.as_mut().unwrap_or_else(|| {
+                let mut user_data = EventUserData::default();
+                // We also fetch the parent user data.
+                let parent_data = (self.get_description().unwrap().0.get_user_data().unwrap()
+                    as *mut EventUserData)
+                    .as_mut();
+
+                // If the parent user data exists, we set this objects user data to have the same callback.
+                // This is so event instances "inherit" the callback of their parents by default.
+                // Either our parent has a callback, in which case its user_data won't be null, or it doesn't have a callback,
+                // in which case we shouldn't have one anyway.
+                // I hope this makes sense and my logic is sound?
+                if let Some(parent_data) = parent_data {
+                    user_data.callback = parent_data.callback.as_mut().map(|c| BoxValue::new(**c));
+                }
+
+                // And then this function returns to the usual.
+                let user_data = Box::into_raw(Box::new(user_data));
+                self.0.set_user_data(user_data as _).unwrap();
+
+                &mut *user_data
+            }))
+        }
+    }
+
+    fn set_callback(
+        &self,
+        callback: magnus::Value,
+        mask: std::ffi::c_uint,
+    ) -> Result<(), magnus::Error> {
+        use crate::wrap::WrapFMOD;
+
+        self.get_or_create_user_data()?.callback = Some(BoxValue::new(callback));
+
+        self.0.set_callback(Some(event_callback), mask).wrap_fmod()
+    }
+
     bind_fn! {
         EventInstance, "EventInstance";
         (is_valid, method, 0),
@@ -411,7 +607,10 @@ impl EventInstance {
         (set_parameter_by_ids, method, 3),
         (key_off, method, 0),
         (get_cpu_usage, method, 0),
-        (get_memory_usage, method, 0)
+        (get_memory_usage, method, 0),
+        (get_user_data, method, 0),
+        (set_user_data, method, 1),
+        (set_callback, method, 2)
     }
 }
 

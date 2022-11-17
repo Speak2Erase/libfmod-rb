@@ -148,6 +148,10 @@ transparent_struct!(CommandInfo; [
     outputhandle: u32
 ]);
 
+transparent_struct!(TimelineMarkerProperties; [name: String, position: i32]);
+transparent_struct!(TimelineBeatProperties; [bar: i32, beat: i32, position: i32, tempo: f32, timesignatureupper: i32, timesignaturelower: i32]);
+transparent_struct!(TimelineNestedBeatProperties; [eventid: RStruct, properties: RStruct]);
+
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     let module = module.define_module("Struct")?;
 
@@ -164,6 +168,9 @@ pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     bind_attributes3d(module)?;
     bind_memoryusage(module)?;
     bind_commandinfo(module)?;
+    bind_timelinebeatproperties(module)?;
+    bind_timelinemarkerproperties(module)?;
+    bind_timelinenestedbeatproperties(module)?;
 
     Ok(())
 }

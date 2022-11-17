@@ -8,17 +8,9 @@ puts FMOD::EventThread
 System = FMOD::Studio::System.create
 System.init(64, 0, 0)
 
-puts System.get_user_data.to_s
-System.set_user_data([
-                       "test",
-                       :this_is_fine,
-                       {
-                         "L" => -> {}
-                       }
-                     ])
-
-GC.start
-puts System.get_user_data.to_s
+System.set_callback(proc { |_system, _type, _data, _userdata|
+  0
+}, 0xFFFFFFFF)
 
 puts FMOD::Studio.parse_id("{00000000-0000-0000-0000-000000000000}")
 
@@ -33,21 +25,31 @@ Strings.get_string_count.times do |i|
   _guid, _string = Strings.get_string_info(i)
 end
 
-Master.get_event_list.each do |e|
-  rand(1..5).to_i.times do |_i|
-    e.create_instance
+Master.get_event_list.each_with_index do |e, n|
+  if (n % 3).zero?
+    e.set_callback(proc { |event, type, data|
+      puts [event, type, data].to_s
+      puts "Event called"
+
+      0
+    }, 0xFFFFFFFF)
   end
+
+  i = e.create_instance
+  if ((n + 1) % 3).zero?
+    i.set_callback(proc { |event, type, data|
+      puts [event, type, data].to_s
+      puts "Custom event callback called"
+
+      0
+    }, 0xFFFFFFFF)
+  end
+  i.start
 end
 
 System.get_parameter_description_list.each do |p|
   puts p
 end
-
-System.set_callback(proc { |_system, _type, _data, userdata|
-  puts userdata.to_s
-
-  0
-}, 0xFFFFFFFF)
 
 loop do
   System.update

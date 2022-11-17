@@ -18,6 +18,7 @@
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
 
+use crate::event::{EventCallbackParameterType, EventUserData};
 use crate::studio::StudioUserData;
 use crate::thread::{spawn_rb_thread, without_gvl};
 
@@ -102,6 +103,7 @@ pub(crate) struct StudioSystemCallback {
     type_: u32,
     data: Option<crate::bank::Bank>,
     sender: Sender<i32>,
+    // FIXME: 'static lifetime here is BAD.
     user_data: &'static mut StudioUserData,
 }
 
@@ -110,7 +112,7 @@ impl StudioSystemCallback {
         system: crate::studio::Studio,
         type_: u32,
         data: Option<crate::bank::Bank>,
-        user_data: *mut std::ffi::c_void,
+        user_data: &'static mut StudioUserData,
     ) -> Receiver<i32> {
         let (sender, reciever) = bounded(1);
 
@@ -119,7 +121,7 @@ impl StudioSystemCallback {
             type_,
             data,
             sender,
-            user_data: unsafe { (user_data as *mut StudioUserData).as_mut().unwrap() },
+            user_data,
         });
 
         #[cfg(feature = "track-callbacks")]
@@ -142,11 +144,9 @@ impl Callback for StudioSystemCallback {
     fn call(&self) {
         #[cfg(feature = "track-callbacks")]
         println!("Running callback...");
-        let result = self
-            .user_data
-            .callback
-            .as_ref()
-            .unwrap()
+        let callback = **self.user_data.callback.as_ref().unwrap();
+
+        let result = callback
             .funcall(
                 "call",
                 (
@@ -156,14 +156,67 @@ impl Callback for StudioSystemCallback {
                     self.user_data.userdata.as_ref().map(|e| **e),
                 ),
             )
-            .map_err(|e| {
-                eprintln!("WARNING RUBY ERROR IN CALLBACK: {e}");
-                e
-            })
-            .unwrap_or(0);
+            .unwrap_or_else(|e| {
+                println!("WARNING RUBY ERROR IN CALLBACK: {e}");
+                0
+            });
 
         #[cfg(feature = "track-callbacks")]
         println!("Callback finished with result {result}");
+
+        self.sender.send(result).unwrap();
+    }
+}
+
+pub(crate) struct EventCallback {
+    event: crate::event::EventInstance,
+    type_: u32,
+    sender: Sender<i32>,
+    parameter: EventCallbackParameterType,
+    user_data: &'static mut EventUserData,
+}
+
+// I am not happy doing this.
+unsafe impl Send for EventCallback {}
+
+impl EventCallback {
+    pub fn create(
+        event: crate::event::EventInstance,
+        type_: u32,
+        parameter: EventCallbackParameterType,
+        user_data: &'static mut EventUserData,
+    ) -> Receiver<i32> {
+        let (sender, reciever) = bounded(1);
+
+        let callback = Box::new(Self {
+            event,
+            type_,
+            parameter,
+            user_data,
+            sender,
+        });
+
+        add_callback(callback);
+
+        reciever
+    }
+}
+
+impl Callback for EventCallback {
+    fn call(&self) {
+        use crate::wrap::WrapFMOD;
+
+        let callback = **self.user_data.callback.as_ref().unwrap();
+
+        let result = callback
+            .funcall(
+                "call",
+                (self.event, self.type_, self.parameter.clone().wrap_fmod()),
+            )
+            .unwrap_or_else(|e| {
+                println!("WARNING RUBY ERROR IN CALLBACK: {e}");
+                0
+            });
 
         self.sender.send(result).unwrap();
     }

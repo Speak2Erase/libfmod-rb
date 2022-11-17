@@ -395,7 +395,7 @@ impl Studio {
     ) -> Result<(), magnus::Error> {
         use crate::wrap::WrapFMOD;
 
-        Self::get_or_create_user_data(&self.0)?.callback = Some(BoxValue::new(callback));
+        self.get_or_create_user_data()?.callback = Some(BoxValue::new(callback));
 
         unsafe extern "C" fn anon(
             system: *mut libfmod::ffi::FMOD_STUDIO_SYSTEM,
@@ -412,7 +412,7 @@ impl Studio {
                 } else {
                     Some(libfmod::Bank::from(data as _).wrap_fmod())
                 },
-                userdata,
+                &mut *(userdata as *mut _),
             );
 
             #[cfg(feature = "track-callbacks")]
@@ -433,29 +433,27 @@ impl Studio {
     opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
 
     fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
-        Self::get_or_create_user_data(&self.0)
+        self.get_or_create_user_data()
             .map(|userdata| userdata.userdata.as_ref().map(|b| **b))
     }
 
     fn set_user_data(&self, val: Option<magnus::Value>) -> Result<(), magnus::Error> {
-        Self::get_or_create_user_data(&self.0).map(|userdata| {
+        self.get_or_create_user_data().map(|userdata| {
             userdata.userdata = val.map(BoxValue::new);
         })
     }
 
-    pub fn get_or_create_user_data(
-        studio: &libfmod::Studio,
-    ) -> Result<&mut StudioUserData, magnus::Error> {
+    fn get_or_create_user_data(&self) -> Result<&mut StudioUserData, magnus::Error> {
         use crate::wrap::WrapFMOD;
 
-        let ptr = studio.get_user_data().map_err(|e| e.wrap_fmod())? as *mut StudioUserData;
+        let ptr = self.0.get_user_data().map_err(|e| e.wrap_fmod())? as *mut StudioUserData;
 
         unsafe {
             Ok(ptr.as_mut().unwrap_or_else(|| {
                 let raw_ptr: *mut StudioUserData = Box::into_raw(Box::default());
-                studio.set_user_data(raw_ptr as *mut _).unwrap();
+                self.0.set_user_data(raw_ptr as *mut _).unwrap();
 
-                raw_ptr.as_mut().unwrap()
+                &mut *raw_ptr
             }))
         }
     }
