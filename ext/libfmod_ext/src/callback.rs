@@ -18,12 +18,14 @@
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
 
-use crate::event::{EventCallbackParameterType, EventUserData};
+use crate::bank::Bank;
+use crate::command_replay::{CommandCallbackType, CommandUserData};
+use crate::event::{EventCallbackParameterType, EventInstance, EventUserData};
 use crate::studio::StudioUserData;
 use crate::thread::{spawn_rb_thread, without_gvl};
 
 pub(crate) trait Callback {
-    fn call(&self);
+    fn call(self: Box<Self>);
 }
 
 type BoxedCallback = Box<dyn Callback + Send>;
@@ -141,10 +143,10 @@ impl Drop for StudioSystemCallback {
 }
 
 impl Callback for StudioSystemCallback {
-    fn call(&self) {
+    fn call(self: Box<Self>) {
         #[cfg(feature = "track-callbacks")]
         println!("Running callback...");
-        let callback = **self.user_data.callback.as_ref().unwrap();
+        let callback = self.user_data.callback.as_deref().copied().unwrap();
 
         let result = callback
             .funcall(
@@ -153,7 +155,7 @@ impl Callback for StudioSystemCallback {
                     self.system,
                     self.type_,
                     self.data,
-                    self.user_data.userdata.as_ref().map(|e| **e),
+                    self.user_data.userdata.as_deref().copied(),
                 ),
             )
             .unwrap_or_else(|e| {
@@ -203,10 +205,10 @@ impl EventCallback {
 }
 
 impl Callback for EventCallback {
-    fn call(&self) {
+    fn call(self: Box<Self>) {
         use crate::wrap::WrapFMOD;
 
-        let callback = **self.user_data.callback.as_ref().unwrap();
+        let callback = self.user_data.callback.as_deref().copied().unwrap();
 
         let result = callback
             .funcall(
@@ -217,6 +219,135 @@ impl Callback for EventCallback {
                 println!("WARNING RUBY ERROR IN CALLBACK: {e}");
                 0
             });
+
+        self.sender.send(result).unwrap();
+    }
+}
+
+pub(crate) struct CommandReplayCallback {
+    type_: CommandCallbackType,
+    userdata: &'static mut CommandUserData,
+    sender: Sender<i32>,
+}
+
+// Augh please don't let this bite me in the ass later
+unsafe impl Send for CommandReplayCallback {}
+
+impl CommandReplayCallback {
+    pub fn create(
+        type_: CommandCallbackType,
+        userdata: &'static mut CommandUserData,
+    ) -> Receiver<i32> {
+        let (sender, reciever) = bounded(1);
+
+        let callback = Self {
+            type_,
+            userdata,
+            sender,
+        };
+
+        add_callback(Box::new(callback));
+
+        reciever
+    }
+}
+
+impl Callback for CommandReplayCallback {
+    fn call(self: Box<Self>) {
+        use crate::wrap::UnwrapFMOD;
+        use crate::wrap::WrapFMOD;
+
+        let callback = self.userdata.create_instance.as_deref().copied().unwrap();
+        let userdata = self.userdata.userdata.as_deref().copied();
+
+        let result = match self.type_ {
+            CommandCallbackType::Instance {
+                replay,
+                commandindex,
+                description,
+                instance,
+            } => {
+                let result: Result<(i32, Option<&EventInstance>), magnus::Error> = callback
+                    .funcall(
+                        "call",
+                        (
+                            replay.wrap_fmod(),
+                            commandindex,
+                            description.wrap_fmod(),
+                            userdata,
+                        ),
+                    );
+
+                match result {
+                    Ok((result, rb_instance)) => {
+                        unsafe {
+                            if let Some(rb_instance) = rb_instance {
+                                *instance = rb_instance.unwrap_fmod().as_mut_ptr();
+                            }
+                        }
+
+                        result
+                    }
+                    Err(e) => {
+                        println!("WARNING RUBY ERROR IN CALLBACK: {e}");
+
+                        0
+                    }
+                }
+            }
+            CommandCallbackType::Frame {
+                replay,
+                commandindex,
+                time,
+            } => {
+                let result =
+                    callback.funcall("call", (replay.wrap_fmod(), commandindex, time, userdata));
+
+                result.unwrap_or_else(|e| {
+                    println!("WARNING RUBY ERROR IN CALLBACK: {e}");
+
+                    0
+                })
+            }
+            CommandCallbackType::Bank {
+                replay,
+                commandindex,
+                guid,
+                bankfilename,
+                flags,
+                bank,
+            } => {
+                //
+                let result: Result<(i32, Option<&Bank>), magnus::Error> = callback.funcall(
+                    "call",
+                    (
+                        replay.wrap_fmod(),
+                        commandindex,
+                        guid.wrap_fmod(),
+                        bankfilename,
+                        flags,
+                        userdata,
+                    ),
+                );
+
+                match result {
+                    Ok((result, rb_bank)) => {
+                        unsafe {
+                            if let Some(rb_bank) = rb_bank {
+                                *bank = rb_bank.unwrap_fmod().as_mut_ptr();
+                            }
+                        }
+
+                        result
+                    }
+                    Err(e) => {
+                        println!("WARNING RUBY ERROR IN CALLBACK: {e}");
+
+                        0
+                    }
+                }
+            }
+        };
 
         self.sender.send(result).unwrap();
     }
