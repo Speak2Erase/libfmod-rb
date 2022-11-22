@@ -1,5 +1,5 @@
 # libfmod
-High level Ruby bindings to the FMOD and FMOD Studio libraries.
+High level Ruby bindings to the FMOD and FMOD Studio libraries powered by Rust.
 
 ---
 
@@ -15,7 +15,7 @@ rescue error
     puts error
 end
 ```
-The methodology behind this is to make errors more explicit when they happen. If you get an error and do not account for it, you will get a proper stack trace rather than some `noMethodError` that leaves you pulling your hair out figuring out why `bank` was `nil`. Programming in Rust has taught me to be explicit about failure, and this is a step closer to that.
+The methodology behind this is to make errors more explicit when they happen. If you get an error and do not account for it, you will get a proper stack trace rather than some `NoMethodError` that leaves you pulling your hair out figuring out why `bank` was `nil`. Programming in Rust has taught me to be explicit about failure, and this is a step closer to that.
 
 These bindings won't handle garbage collection as you'd expect from Ruby. You will need to clean up after yourself.
 Because of the way the bindings work as well calling the same function twice will **NOT** return the "same" object. Fundamentally, it is the same object, as the Rust side object is the same, but it is a brand new object as far as Ruby is concerned. It actually allocates a new Object that *points* to the same Rust side object, however the size of that Object is nonzero which means it is quite easy to leak memory with it.
@@ -53,7 +53,25 @@ FMOD has a lot of structs, a lot of which have private fields (opaque structs). 
 
 However, there are some with public fields (Such as `Guid` or `Vector`). 
 Each of those structs is actually respresented in Ruby by a `Struct`, which means you can instantiate them freely! 
+
 You can even pass them to FMOD, provided all the fields are the correct type.
+
+**If you do not provide the right type you will get an error.**
+
+(Something like this: ```called `Result::unwrap()` on an `Err` value: Exception(#<TypeError: no implicit conversion of String into Integer>)```)
+
+At the moment libfmod does not bubble these errors up and instead panics (rust equivalent of throwing an error) and in the future will do that.
+
+Their definition is something like this:
+```rb
+module FMOD
+  module Struct
+    Guid = Struct.new("Guid", :data_1, :data_2, :data_3, :data_4)
+
+    ParameterId = Struct.new(...)...
+  end
+end
+```
 
 # Callbacks
 
@@ -88,8 +106,21 @@ If this **really** matters and you really need to use FMOD callbacks to manipula
 
 # User data
 
-Due to weird behavior and needing to satisfy the ruby garbage collector, user data is unsupported for now. I will return to it later.
+Any user data you set via `set_user_data` or `get_user_data` will be kept alive until you set it to something else, **and releasing an FMOD object will not clear its userdata.**
+Please keep that in mind!
 
----
+## Internal representation
 
-I hope that's enough info to get you started!
+User data is handled internally differently from how you may expect in FMOD.
+When setting user data, you actually set it to be a pointer to something like this structure:
+
+```rs
+pub struct CommandUserData {
+    pub userdata: Option<BoxValue<magnus::Value>>,
+    pub create_instance: Option<BoxValue<magnus::Value>>,
+    pub frame: Option<BoxValue<magnus::Value>>,
+    pub bank: Option<BoxValue<magnus::Value>>,
+}
+```
+
+Your userdata is stored alongside any callbacks set. If you are relying on an FMOD plugin that does not expect this behavior you are sadly not going to be able to use these bindings.

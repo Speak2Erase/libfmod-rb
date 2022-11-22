@@ -15,5 +15,9 @@ mkmf.log
 target/
 libfmod.so.*
 libfmodstudio.*
+fmod.dll
+fmodstudio.dll
+fmodL.dll
+fmodstudioL.dll
 .gdb_history
 /vendor/

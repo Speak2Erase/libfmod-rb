@@ -16,7 +16,6 @@ puts FMOD::Studio.parse_id("{00000000-0000-0000-0000-000000000000}")
 
 Master = System.load_bank_file("media/Master.bank", 0)
 Strings = System.load_bank_file("media/Master.strings.bank", 0)
-Vehicles = System.load_bank_memory(File.read("media/Vehicles.bank").bytes, FMOD::Enum::LoadMemoryMode::Memory, 0)
 
 puts Master.get_path
 puts Strings.get_path
