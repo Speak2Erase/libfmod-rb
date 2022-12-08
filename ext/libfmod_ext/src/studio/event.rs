@@ -31,7 +31,6 @@ pub struct EventUserData {
     pub userdata: Option<BoxValue<magnus::Value>>,
 }
 
-#[derive(Clone)]
 pub enum EventCallbackParameterType {
     // TODO: This needs FMOD_SOUND but we do not have core bindings yet.
     // ProgrammerSound(libfmod::ProgrammerSoundProperties),

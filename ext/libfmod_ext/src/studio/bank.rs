@@ -17,7 +17,11 @@
 
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
-use crate::{enums::LoadingState, err_fmod, event::EventDescription, vca::Vca};
+use crate::{
+    enums::LoadingState,
+    err_fmod,
+    studio::{event::EventDescription, vca::Vca},
+};
 
 opaque_struct!(Bank, "Studio", "Bank");
 

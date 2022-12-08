@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 track-callbacks = []
 
 [dependencies]
-magnus = { version = "0.3", features = ["rb-sys-interop"] }
+magnus = { version = "0.4.0", features = ["rb-sys-interop"] }
 libfmod = "2.2.603"
 paste = "1.0.9"
 rb-sys = "0.9.41"

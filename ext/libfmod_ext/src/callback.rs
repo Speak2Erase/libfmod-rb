@@ -18,10 +18,10 @@
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;
 
-use crate::bank::Bank;
-use crate::command_replay::{CommandCallbackType, CommandUserData};
-use crate::event::{EventCallbackParameterType, EventInstance, EventUserData};
-use crate::studio::StudioUserData;
+use crate::studio::bank::Bank;
+use crate::studio::command_replay::{CommandCallbackType, CommandUserData};
+use crate::studio::event::{EventCallbackParameterType, EventInstance, EventUserData};
+use crate::studio::system::StudioUserData;
 use crate::thread::{spawn_rb_thread, without_gvl};
 
 pub(crate) trait Callback {
@@ -101,9 +101,9 @@ pub fn callback_thread(_: ()) -> u64 {
 }
 
 pub(crate) struct StudioSystemCallback {
-    system: crate::studio::Studio,
+    system: crate::studio::system::Studio,
     type_: u32,
-    data: Option<crate::bank::Bank>,
+    data: Option<Bank>,
     sender: Sender<i32>,
     // FIXME: 'static lifetime here is BAD.
     user_data: &'static mut StudioUserData,
@@ -111,9 +111,9 @@ pub(crate) struct StudioSystemCallback {
 
 impl StudioSystemCallback {
     pub fn create(
-        system: crate::studio::Studio,
+        system: crate::studio::system::Studio,
         type_: u32,
-        data: Option<crate::bank::Bank>,
+        data: Option<Bank>,
         user_data: &'static mut StudioUserData,
     ) -> Receiver<i32> {
         let (sender, reciever) = bounded(1);
@@ -171,7 +171,7 @@ impl Callback for StudioSystemCallback {
 }
 
 pub(crate) struct EventCallback {
-    event: crate::event::EventInstance,
+    event: EventInstance,
     type_: u32,
     sender: Sender<i32>,
     parameter: EventCallbackParameterType,
@@ -183,7 +183,7 @@ unsafe impl Send for EventCallback {}
 
 impl EventCallback {
     pub fn create(
-        event: crate::event::EventInstance,
+        event: EventInstance,
         type_: u32,
         parameter: EventCallbackParameterType,
         user_data: &'static mut EventUserData,
@@ -211,10 +211,7 @@ impl Callback for EventCallback {
         let callback = self.user_data.callback.as_deref().copied().unwrap();
 
         let result = callback
-            .funcall(
-                "call",
-                (self.event, self.type_, self.parameter.clone().wrap_fmod()),
-            )
+            .funcall("call", (self.event, self.type_, self.parameter.wrap_fmod()))
             .unwrap_or_else(|e| {
                 println!("WARNING RUBY ERROR IN CALLBACK: {e}");
                 0

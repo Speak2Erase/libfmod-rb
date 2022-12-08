@@ -18,15 +18,15 @@
 use magnus::value::BoxValue;
 use magnus::RStruct;
 
-use crate::command_replay::CommandReplay;
 use crate::enums::LoadMemoryMode;
 use crate::err_fmod;
-use crate::event::EventDescription;
+use crate::studio::command_replay::CommandReplay;
+use crate::studio::event::EventDescription;
+use crate::studio::vca::Vca;
 use crate::thread::without_gvl_no_ubf;
-use crate::vca::Vca;
-use crate::{bank::Bank, callback::StudioSystemCallback};
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
+use crate::{callback::StudioSystemCallback, studio::bank::Bank};
 
 #[derive(Default)]
 pub struct StudioUserData {

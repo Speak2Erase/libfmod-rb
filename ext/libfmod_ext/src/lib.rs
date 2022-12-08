@@ -1,21 +1,23 @@
 #![warn(rust_2018_idioms, clippy::all)]
 #![feature(macro_metavar_expr)]
 
-use magnus::Module;
+use magnus::{rb_sys::FromRawValue, Module};
 use thread::spawn_rb_thread;
 
-mod bank;
-mod bus;
-mod command_replay;
+mod callback;
 mod enums;
-mod event;
-mod studio;
 mod thread;
 mod transparent_struct;
-mod vca;
 mod wrap;
 
-mod callback;
+mod studio {
+    pub mod bank;
+    pub mod bus;
+    pub mod command_replay;
+    pub mod event;
+    pub mod system;
+    pub mod vca;
+}
 
 #[macro_use]
 mod macros;
@@ -46,19 +48,19 @@ fn init() -> Result<(), magnus::Error> {
     studio.define_module_function("parse_id", magnus::function!(parse_id, 1))?;
     let enums = top.define_module("Enum")?;
 
-    bank::bind(studio)?;
-    bus::bind(studio)?;
-    command_replay::bind(studio)?;
-    event::bind(studio)?;
-    studio::bind_system(studio)?;
-    vca::bind(studio)?;
+    studio::bank::bind(studio)?;
+    studio::bus::bind(studio)?;
+    studio::command_replay::bind(studio)?;
+    studio::event::bind(studio)?;
+    studio::system::bind_system(studio)?;
+    studio::vca::bind(studio)?;
 
     enums::bind_enums(enums)?;
     transparent_struct::bind(top)?;
 
     unsafe {
         let callback_thread =
-            magnus::rb_sys::value_from_raw(spawn_rb_thread(callback::callback_thread, ()));
+            magnus::Value::from_raw(spawn_rb_thread(callback::callback_thread, ()));
 
         top.const_set("EventThread", callback_thread)?;
     }

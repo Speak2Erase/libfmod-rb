@@ -20,7 +20,7 @@ use magnus::value::BoxValue;
 #[allow(unused_imports)]
 use crate::{bind_fn, opaque_struct, opaque_struct_function, opaque_struct_method};
 use crate::{callback::CommandReplayCallback, err_fmod};
-use crate::{enums::PlaybackState, studio::Studio};
+use crate::{enums::PlaybackState, studio::system::Studio};
 
 #[derive(Default)]
 pub struct CommandUserData {
@@ -30,7 +30,6 @@ pub struct CommandUserData {
     pub bank: Option<BoxValue<magnus::Value>>,
 }
 
-#[derive(Clone)]
 pub enum CommandCallbackType {
     Instance {
         replay: libfmod::CommandReplay,
