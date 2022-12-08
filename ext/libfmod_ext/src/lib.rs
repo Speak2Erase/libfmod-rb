@@ -19,6 +19,10 @@ mod studio {
     pub mod vca;
 }
 
+mod core {
+    pub mod system;
+}
+
 #[macro_use]
 mod macros;
 
@@ -43,10 +47,13 @@ fn init() -> Result<(), magnus::Error> {
 
     let top = magnus::define_module("FMOD")?;
 
-    let _core = top.define_module("Core")?;
+    let core = top.define_module("Core")?;
     let studio = top.define_module("Studio")?;
     studio.define_module_function("parse_id", magnus::function!(parse_id, 1))?;
     let enums = top.define_module("Enum")?;
+
+    enums::bind_enums(enums)?;
+    transparent_struct::bind(top)?;
 
     studio::bank::bind(studio)?;
     studio::bus::bind(studio)?;
@@ -55,8 +62,7 @@ fn init() -> Result<(), magnus::Error> {
     studio::system::bind_system(studio)?;
     studio::vca::bind(studio)?;
 
-    enums::bind_enums(enums)?;
-    transparent_struct::bind(top)?;
+    core::system::bind(core)?;
 
     unsafe {
         let callback_thread =

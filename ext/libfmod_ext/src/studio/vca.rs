@@ -26,7 +26,7 @@ impl Vca {
         unsafe { libfmod::ffi::FMOD_Studio_VCA_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_id, Result<magnus::RStruct, magnus::Error>;);
+    opaque_struct_method!(get_id, magnus::RStruct;);
 
     fn get_path(&self) -> Result<String, magnus::Error> {
         unsafe {
@@ -58,8 +58,8 @@ impl Vca {
         }
     }
 
-    opaque_struct_method!(get_volume, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(set_volume, Result<(), magnus::Error>; (f32));
+    opaque_struct_method!(get_volume, (f32, f32););
+    opaque_struct_method!(set_volume, (); (f32));
 
     bind_fn! {
         Vca, "VCA";

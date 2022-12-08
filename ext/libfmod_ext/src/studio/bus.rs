@@ -26,7 +26,7 @@ impl Bus {
         unsafe { libfmod::ffi::FMOD_Studio_Bus_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_id, Result<magnus::RStruct, magnus::Error>;);
+    opaque_struct_method!(get_id, magnus::RStruct;);
 
     fn get_path(&self) -> Result<String, magnus::Error> {
         // TODO: Make macro
@@ -59,22 +59,22 @@ impl Bus {
         }
     }
 
-    opaque_struct_method!(get_volume, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(set_volume, Result<(), magnus::Error>; (f32));
-    opaque_struct_method!(get_paused, Result<bool, magnus::Error>;);
-    opaque_struct_method!(set_paused, Result<(), magnus::Error>; (bool));
-    opaque_struct_method!(get_mute, Result<bool, magnus::Error>;);
-    opaque_struct_method!(set_mute, Result<(), magnus::Error>; (bool));
-    opaque_struct_method!(stop_all_events, Result<(), magnus::Error>; (&StopMode));
-    opaque_struct_method!(get_port_index, Result<u64, magnus::Error>;);
-    opaque_struct_method!(set_port_index, Result<(), magnus::Error>; (u64));
-    opaque_struct_method!(lock_channel_group, Result<(), magnus::Error>;);
-    opaque_struct_method!(unlock_channel_group, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_volume, (f32, f32););
+    opaque_struct_method!(set_volume, (); (f32));
+    opaque_struct_method!(get_paused, bool;);
+    opaque_struct_method!(set_paused, (); (bool));
+    opaque_struct_method!(get_mute, bool;);
+    opaque_struct_method!(set_mute, (); (bool));
+    opaque_struct_method!(stop_all_events, (); (&StopMode));
+    opaque_struct_method!(get_port_index, u64;);
+    opaque_struct_method!(set_port_index, (); (u64));
+    opaque_struct_method!(lock_channel_group, (););
+    opaque_struct_method!(unlock_channel_group, (););
 
     // TODO: ChannelGroup
 
-    opaque_struct_method!(get_cpu_usage, Result<(u32, u32), magnus::Error>;);
-    opaque_struct_method!(get_memory_usage, Result<magnus::RStruct, magnus::Error>;);
+    opaque_struct_method!(get_cpu_usage, (u32, u32););
+    opaque_struct_method!(get_memory_usage, magnus::RStruct;);
 
     bind_fn! {
         Bus, "Bus";

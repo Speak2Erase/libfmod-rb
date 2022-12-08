@@ -37,15 +37,15 @@ pub struct StudioUserData {
 opaque_struct!(Studio, "Studio", "System");
 
 impl Studio {
-    opaque_struct_function!(Studio, create, Result<Self, magnus::Error>;);
+    opaque_struct_function!(Studio, create, Self;);
 
     // We define this manually because libfmod gets it wrong.
     fn is_valid(&self) -> bool {
         unsafe { libfmod::ffi::FMOD_Studio_System_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(set_advanced_settings, Result<(), magnus::Error>; (RStruct));
-    opaque_struct_method!(get_advanced_settings, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(set_advanced_settings, (); (RStruct));
+    opaque_struct_method!(get_advanced_settings, RStruct;);
 
     fn init(
         &self,
@@ -72,15 +72,15 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(release, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_event, Result<EventDescription, magnus::Error>; (String: ref));
-    opaque_struct_method!(get_vca, Result<Vca, magnus::Error>; (String: ref));
-    opaque_struct_method!(get_bank, Result<Bank, magnus::Error>; (String: ref));
-    opaque_struct_method!(get_event_by_id, Result<EventDescription, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_vca_by_id, Result<Vca, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_bank_by_id, Result<Bank, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_parameter_description_by_id, Result<RStruct, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
+    opaque_struct_method!(release, (););
+    opaque_struct_method!(get_event, EventDescription; (String: ref));
+    opaque_struct_method!(get_vca, Vca; (String: ref));
+    opaque_struct_method!(get_bank, Bank; (String: ref));
+    opaque_struct_method!(get_event_by_id, EventDescription; (RStruct));
+    opaque_struct_method!(get_vca_by_id, Vca; (RStruct));
+    opaque_struct_method!(get_bank_by_id, Bank; (RStruct));
+    opaque_struct_method!(get_parameter_description_by_id, RStruct; (RStruct));
+    opaque_struct_method!(get_parameter_description_by_name, RStruct; (String: ref));
 
     fn get_parameter_label_by_name(
         &self,
@@ -166,9 +166,9 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(get_parameter_by_id, Result<(f32, f32), magnus::Error>; (RStruct));
-    opaque_struct_method!(set_parameter_by_id, Result<(), magnus::Error>; (RStruct), (f32), (bool));
-    opaque_struct_method!(set_parameter_by_id_with_label, Result<(), magnus::Error>; (RStruct), (String: ref), (bool));
+    opaque_struct_method!(get_parameter_by_id, (f32, f32); (RStruct));
+    opaque_struct_method!(set_parameter_by_id, (); (RStruct), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_id_with_label, (); (RStruct), (String: ref), (bool));
 
     fn set_parameter_by_ids(
         &self,
@@ -210,11 +210,11 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(get_parameter_by_name, Result<(f32, f32), magnus::Error>; (String: ref));
-    opaque_struct_method!(set_parameter_by_name, Result<(), magnus::Error>; (String: ref), (f32), (bool));
-    opaque_struct_method!(set_parameter_by_name_with_label, Result<(), magnus::Error>; (String: ref), (String: ref), (bool));
+    opaque_struct_method!(get_parameter_by_name, (f32, f32); (String: ref));
+    opaque_struct_method!(set_parameter_by_name, (); (String: ref), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_name_with_label, (); (String: ref), (String: ref), (bool));
 
-    opaque_struct_method!(lookup_id, Result<RStruct, magnus::Error>; (String: ref));
+    opaque_struct_method!(lookup_id, RStruct; (String: ref));
 
     fn lookup_path(&self, id: RStruct) -> Result<String, magnus::Error> {
         unsafe {
@@ -252,19 +252,19 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(unload_all, Result<(), magnus::Error>;);
-    opaque_struct_method!(flush_commands, Result<(), magnus::Error>;);
-    opaque_struct_method!(flush_sample_loading, Result<(), magnus::Error>;);
-    opaque_struct_method!(start_command_capture, Result<(), magnus::Error>; (String: ref), (std::ffi::c_uint));
-    opaque_struct_method!(stop_command_capture, Result<(), magnus::Error>;);
-    opaque_struct_method!(load_command_replay, Result<CommandReplay, magnus::Error>; (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(unload_all, (););
+    opaque_struct_method!(flush_commands, (););
+    opaque_struct_method!(flush_sample_loading, (););
+    opaque_struct_method!(start_command_capture, (); (String: ref), (std::ffi::c_uint));
+    opaque_struct_method!(stop_command_capture, (););
+    opaque_struct_method!(load_command_replay, CommandReplay; (String: ref), (std::ffi::c_uint));
 
-    opaque_struct_method!(get_num_listeners, Result<i32, magnus::Error>;);
-    opaque_struct_method!(set_num_listeners, Result<(), magnus::Error>; (i32));
-    opaque_struct_method!(get_listener_attributes, Result<(RStruct, RStruct), magnus::Error>; (i32));
-    opaque_struct_method!(set_listener_attributes, Result<(), magnus::Error>; (i32), (RStruct), (Option<RStruct>));
-    opaque_struct_method!(get_listener_weight, Result<f32, magnus::Error>; (i32));
-    opaque_struct_method!(set_listener_weight, Result<(), magnus::Error>; (i32), (f32));
+    opaque_struct_method!(get_num_listeners, i32;);
+    opaque_struct_method!(set_num_listeners, (); (i32));
+    opaque_struct_method!(get_listener_attributes, (RStruct, RStruct); (i32));
+    opaque_struct_method!(set_listener_attributes, (); (i32), (RStruct), (Option<RStruct>));
+    opaque_struct_method!(get_listener_weight, f32; (i32));
+    opaque_struct_method!(set_listener_weight, (); (i32), (f32));
 
     // Because this function *can* be blocking we HAVE to do this to avoid it deadlocking on callbacks.
     fn load_bank_file(
@@ -317,7 +317,7 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(get_bank_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_bank_count, i32;);
 
     fn get_bank_list(&self) -> Result<Vec<Bank>, magnus::Error> {
         unsafe {
@@ -346,7 +346,7 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(get_parameter_description_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_parameter_description_count, i32;);
 
     fn get_parameter_description_list(&self) -> Result<Vec<RStruct>, magnus::Error> {
         unsafe {
@@ -383,9 +383,9 @@ impl Studio {
         }
     }
 
-    opaque_struct_method!(get_cpu_usage, Result<(RStruct, RStruct), magnus::Error>;);
-    opaque_struct_method!(get_buffer_usage, Result<RStruct, magnus::Error>;);
-    opaque_struct_method!(reset_buffer_usage, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_cpu_usage, (RStruct, RStruct););
+    opaque_struct_method!(get_buffer_usage, RStruct;);
+    opaque_struct_method!(reset_buffer_usage, (););
 
     // This function is a doozy.
     fn set_callback(
@@ -430,7 +430,7 @@ impl Studio {
             .map_err(|e| e.wrap_fmod())
     }
 
-    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(get_memory_usage, RStruct;);
 
     fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
         self.get_or_create_user_data()

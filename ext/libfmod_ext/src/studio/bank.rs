@@ -33,7 +33,7 @@ impl Bank {
         unsafe { libfmod::ffi::FMOD_Studio_Bank_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_id, Result<magnus::RStruct, magnus::Error>;);
+    opaque_struct_method!(get_id, magnus::RStruct;);
 
     fn get_path(&self) -> Result<String, magnus::Error> {
         // TODO: Make macro
@@ -66,12 +66,12 @@ impl Bank {
         }
     }
 
-    opaque_struct_method!(unload, Result<(), magnus::Error>;);
-    opaque_struct_method!(load_sample_data, Result<(), magnus::Error>;);
-    opaque_struct_method!(unload_sample_data, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_loading_state, Result<LoadingState, magnus::Error>;);
-    opaque_struct_method!(get_sample_loading_state, Result<LoadingState, magnus::Error>;);
-    opaque_struct_method!(get_string_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(unload, (););
+    opaque_struct_method!(load_sample_data, (););
+    opaque_struct_method!(unload_sample_data, (););
+    opaque_struct_method!(get_loading_state, LoadingState;);
+    opaque_struct_method!(get_sample_loading_state, LoadingState;);
+    opaque_struct_method!(get_string_count, i32;);
 
     fn get_string_info(&self, index: i32) -> Result<(magnus::RStruct, String), magnus::Error> {
         unsafe {
@@ -113,7 +113,7 @@ impl Bank {
         }
     }
 
-    opaque_struct_method!(get_event_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_event_count, i32;);
 
     fn get_event_list(&self) -> Result<Vec<EventDescription>, magnus::Error> {
         unsafe {
@@ -142,8 +142,8 @@ impl Bank {
         }
     }
 
-    opaque_struct_method!(get_bus_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(get_vca_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_bus_count, i32;);
+    opaque_struct_method!(get_vca_count, i32;);
 
     fn get_vca_list(&self) -> Result<Vec<Vca>, magnus::Error> {
         unsafe {

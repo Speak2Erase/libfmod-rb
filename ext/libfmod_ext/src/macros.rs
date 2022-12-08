@@ -121,7 +121,7 @@ macro_rules! opaque_struct_method {
             fn $fn_name(
                 &self,
                 $( [<arg_ ${index()}>]: $arg, )*
-            ) $( -> $result )? {
+            ) $( -> Result<$result, magnus::Error> )? {
                 use $crate::wrap::WrapFMOD;
                 use $crate::wrap::UnwrapFMOD;
 
@@ -135,7 +135,7 @@ macro_rules! opaque_struct_method {
 macro_rules! opaque_struct_function {
     ($struct_name:ident, $fn_name:ident $(, $result:ty)?;) => {
         #[allow(unused_imports)]
-        fn $fn_name() $( -> $result )? {
+        fn $fn_name() $( -> Result<$result, magnus::Error> )? {
             use $crate::wrap::WrapFMOD;
             use $crate::wrap::UnwrapFMOD;
 

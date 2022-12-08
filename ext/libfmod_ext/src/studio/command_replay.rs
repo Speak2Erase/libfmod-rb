@@ -137,10 +137,10 @@ impl CommandReplay {
         unsafe { libfmod::ffi::FMOD_Studio_CommandReplay_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_system, Result<Studio, magnus::Error>;);
-    opaque_struct_method!(get_length, Result<f32, magnus::Error>;);
-    opaque_struct_method!(get_command_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(get_command_info, Result<magnus::RStruct, magnus::Error>; (i32));
+    opaque_struct_method!(get_system, Studio;);
+    opaque_struct_method!(get_length, f32;);
+    opaque_struct_method!(get_command_count, i32;);
+    opaque_struct_method!(get_command_info, magnus::RStruct; (i32));
 
     // This function behaves differently than other FMOD functions.
     fn get_command_string(&self, commandindex: i32) -> Result<String, magnus::Error> {
@@ -179,17 +179,17 @@ impl CommandReplay {
         }
     }
 
-    opaque_struct_method!(get_command_at_time, Result<i32, magnus::Error>; (f32));
-    opaque_struct_method!(set_bank_path, Result<(), magnus::Error>; (String: ref));
-    opaque_struct_method!(start, Result<(), magnus::Error>;);
-    opaque_struct_method!(stop, Result<(), magnus::Error>;);
-    opaque_struct_method!(seek_to_time, Result<(), magnus::Error>; (f32));
-    opaque_struct_method!(seek_to_command, Result<(), magnus::Error>; (i32));
-    opaque_struct_method!(get_paused, Result<bool, magnus::Error>;);
-    opaque_struct_method!(set_paused, Result<(), magnus::Error>; (bool));
-    opaque_struct_method!(get_playback_state, Result<PlaybackState, magnus::Error>;);
-    opaque_struct_method!(get_current_command, Result<(i32, f32), magnus::Error>;);
-    opaque_struct_method!(release, Result<(), magnus::Error>;);
+    opaque_struct_method!(get_command_at_time, i32; (f32));
+    opaque_struct_method!(set_bank_path, (); (String: ref));
+    opaque_struct_method!(start, (););
+    opaque_struct_method!(stop, (););
+    opaque_struct_method!(seek_to_time, (); (f32));
+    opaque_struct_method!(seek_to_command, (); (i32));
+    opaque_struct_method!(get_paused, bool;);
+    opaque_struct_method!(set_paused, (); (bool));
+    opaque_struct_method!(get_playback_state, PlaybackState;);
+    opaque_struct_method!(get_current_command, (i32, f32););
+    opaque_struct_method!(release, (););
 
     fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
         self.get_or_create_user_data()

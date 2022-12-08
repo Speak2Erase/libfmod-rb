@@ -127,7 +127,7 @@ impl EventDescription {
         unsafe { libfmod::ffi::FMOD_Studio_EventDescription_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_id, Result<magnus::RStruct, magnus::Error>;);
+    opaque_struct_method!(get_id, magnus::RStruct;);
 
     fn get_path(&self) -> Result<String, magnus::Error> {
         unsafe {
@@ -159,10 +159,10 @@ impl EventDescription {
         }
     }
 
-    opaque_struct_method!(get_parameter_description_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(get_parameter_description_by_index, Result<RStruct, magnus::Error>; (i32));
-    opaque_struct_method!(get_parameter_description_by_id, Result<RStruct, magnus::Error>; (RStruct));
-    opaque_struct_method!(get_parameter_description_by_name, Result<RStruct, magnus::Error>; (String: ref));
+    opaque_struct_method!(get_parameter_description_count, i32;);
+    opaque_struct_method!(get_parameter_description_by_index, RStruct; (i32));
+    opaque_struct_method!(get_parameter_description_by_id, RStruct; (RStruct));
+    opaque_struct_method!(get_parameter_description_by_name, RStruct; (String: ref));
 
     fn get_parameter_label_by_index(
         &self,
@@ -304,20 +304,20 @@ impl EventDescription {
         }
     }
 
-    opaque_struct_method!(get_user_property_count, Result<i32, magnus::Error>;);
-    opaque_struct_method!(get_user_property_by_index, Result<RStruct, magnus::Error>; (i32));
-    opaque_struct_method!(get_user_property, Result<RStruct, magnus::Error>; (String: ref));
-    opaque_struct_method!(get_length, Result<i32, magnus::Error>;);
-    opaque_struct_method!(get_min_max_distance, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(get_sound_size, Result<f32, magnus::Error>;);
-    opaque_struct_method!(is_snapshot, Result<bool, magnus::Error>;);
-    opaque_struct_method!(is_oneshot, Result<bool, magnus::Error>;);
-    opaque_struct_method!(is_stream, Result<bool, magnus::Error>;);
-    opaque_struct_method!(is_3d, Result<bool, magnus::Error>;);
-    opaque_struct_method!(is_doppler_enabled, Result<bool, magnus::Error>;);
-    opaque_struct_method!(has_sustain_point, Result<bool, magnus::Error>;);
-    opaque_struct_method!(create_instance, Result<EventInstance, magnus::Error>;);
-    opaque_struct_method!(get_instance_count, Result<i32, magnus::Error>;);
+    opaque_struct_method!(get_user_property_count, i32;);
+    opaque_struct_method!(get_user_property_by_index, RStruct; (i32));
+    opaque_struct_method!(get_user_property, RStruct; (String: ref));
+    opaque_struct_method!(get_length, i32;);
+    opaque_struct_method!(get_min_max_distance, (f32, f32););
+    opaque_struct_method!(get_sound_size, f32;);
+    opaque_struct_method!(is_snapshot, bool;);
+    opaque_struct_method!(is_oneshot, bool;);
+    opaque_struct_method!(is_stream, bool;);
+    opaque_struct_method!(is_3d, bool;);
+    opaque_struct_method!(is_doppler_enabled, bool;);
+    opaque_struct_method!(has_sustain_point, bool;);
+    opaque_struct_method!(create_instance, EventInstance;);
+    opaque_struct_method!(get_instance_count, i32;);
 
     fn get_instance_list(&self) -> Result<Vec<EventInstance>, magnus::Error> {
         unsafe {
@@ -349,10 +349,10 @@ impl EventDescription {
         }
     }
 
-    opaque_struct_method!(load_sample_data, Result<(), magnus::Error>;);
-    opaque_struct_method!(unload_sample_data, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_sample_loading_state, Result<LoadingState, magnus::Error>;);
-    opaque_struct_method!(release_all_instances, Result<(), magnus::Error>;);
+    opaque_struct_method!(load_sample_data, (););
+    opaque_struct_method!(unload_sample_data, (););
+    opaque_struct_method!(get_sample_loading_state, LoadingState;);
+    opaque_struct_method!(release_all_instances, (););
 
     fn set_callback(
         &self,
@@ -437,35 +437,35 @@ impl EventInstance {
         unsafe { libfmod::ffi::FMOD_Studio_EventInstance_IsValid(self.0.as_mut_ptr()) != 0 }
     }
 
-    opaque_struct_method!(get_description, Result<EventDescription, magnus::Error>;);
-    opaque_struct_method!(get_volume, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(set_volume, Result<(), magnus::Error>; (f32));
-    opaque_struct_method!(get_pitch, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(set_pitch, Result<(), magnus::Error>; (f32));
-    opaque_struct_method!(get_3d_attributes, Result<RStruct, magnus::Error>;);
-    opaque_struct_method!(set_3d_attributes, Result<(), magnus::Error>; (RStruct));
-    opaque_struct_method!(get_listener_mask, Result<u32, magnus::Error>;);
-    opaque_struct_method!(set_listener_mask, Result<(), magnus::Error>; (u32));
-    opaque_struct_method!(get_property, Result<f32, magnus::Error>; (&EventProperty));
-    opaque_struct_method!(set_property, Result<(), magnus::Error>; (&EventProperty), (f32));
-    opaque_struct_method!(get_reverb_level, Result<f32, magnus::Error>; (i32));
-    opaque_struct_method!(set_reverb_level, Result<(), magnus::Error>; (i32), (f32));
-    opaque_struct_method!(get_paused, Result<bool, magnus::Error>;);
-    opaque_struct_method!(set_paused, Result<(), magnus::Error>; (bool));
-    opaque_struct_method!(start, Result<(), magnus::Error>;);
-    opaque_struct_method!(stop, Result<(), magnus::Error>; (&StopMode));
-    opaque_struct_method!(get_timeline_position, Result<i32, magnus::Error>;);
-    opaque_struct_method!(set_timeline_position, Result<(), magnus::Error>; (i32));
-    opaque_struct_method!(get_playback_state, Result<PlaybackState, magnus::Error>;);
-    opaque_struct_method!(get_min_max_distance, Result<(f32, f32), magnus::Error>;);
-    opaque_struct_method!(release, Result<(), magnus::Error>;);
-    opaque_struct_method!(is_virtual, Result<bool, magnus::Error>;);
-    opaque_struct_method!(get_parameter_by_name, Result<(f32, f32), magnus::Error>; (String: ref));
-    opaque_struct_method!(set_parameter_by_name, Result<(), magnus::Error>; (String: ref), (f32), (bool));
-    opaque_struct_method!(set_parameter_by_name_with_label, Result<(), magnus::Error>; (String: ref), (String: ref), (bool));
-    opaque_struct_method!(get_parameter_by_id, Result<(f32, f32), magnus::Error>; (RStruct));
-    opaque_struct_method!(set_parameter_by_id, Result<(), magnus::Error>; (RStruct), (f32), (bool));
-    opaque_struct_method!(set_parameter_by_id_with_label, Result<(), magnus::Error>; (RStruct), (String: ref), (bool));
+    opaque_struct_method!(get_description, EventDescription;);
+    opaque_struct_method!(get_volume, (f32, f32););
+    opaque_struct_method!(set_volume, (); (f32));
+    opaque_struct_method!(get_pitch, (f32, f32););
+    opaque_struct_method!(set_pitch, (); (f32));
+    opaque_struct_method!(get_3d_attributes, RStruct;);
+    opaque_struct_method!(set_3d_attributes, (); (RStruct));
+    opaque_struct_method!(get_listener_mask, u32;);
+    opaque_struct_method!(set_listener_mask, (); (u32));
+    opaque_struct_method!(get_property, f32; (&EventProperty));
+    opaque_struct_method!(set_property, (); (&EventProperty), (f32));
+    opaque_struct_method!(get_reverb_level, f32; (i32));
+    opaque_struct_method!(set_reverb_level, (); (i32), (f32));
+    opaque_struct_method!(get_paused, bool;);
+    opaque_struct_method!(set_paused, (); (bool));
+    opaque_struct_method!(start, (););
+    opaque_struct_method!(stop, (); (&StopMode));
+    opaque_struct_method!(get_timeline_position, i32;);
+    opaque_struct_method!(set_timeline_position, (); (i32));
+    opaque_struct_method!(get_playback_state, PlaybackState;);
+    opaque_struct_method!(get_min_max_distance, (f32, f32););
+    opaque_struct_method!(release, (););
+    opaque_struct_method!(is_virtual, bool;);
+    opaque_struct_method!(get_parameter_by_name, (f32, f32); (String: ref));
+    opaque_struct_method!(set_parameter_by_name, (); (String: ref), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_name_with_label, (); (String: ref), (String: ref), (bool));
+    opaque_struct_method!(get_parameter_by_id, (f32, f32); (RStruct));
+    opaque_struct_method!(set_parameter_by_id, (); (RStruct), (f32), (bool));
+    opaque_struct_method!(set_parameter_by_id_with_label, (); (RStruct), (String: ref), (bool));
 
     fn set_parameter_by_ids(
         &self,
@@ -510,9 +510,9 @@ impl EventInstance {
         }
     }
 
-    opaque_struct_method!(key_off, Result<(), magnus::Error>;);
-    opaque_struct_method!(get_cpu_usage, Result<(u32, u32), magnus::Error>;);
-    opaque_struct_method!(get_memory_usage, Result<RStruct, magnus::Error>;);
+    opaque_struct_method!(key_off, (););
+    opaque_struct_method!(get_cpu_usage, (u32, u32););
+    opaque_struct_method!(get_memory_usage, RStruct;);
 
     fn get_user_data(&self) -> Result<Option<magnus::Value>, magnus::Error> {
         self.get_or_create_user_data()
