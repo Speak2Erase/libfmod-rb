@@ -1,4 +1,19 @@
 {
     "editor.formatOnSave": true,
-    "rust-analyzer.checkOnSave.command": "clippy"
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.server.extraEnv": {
+        "PATH": "${env:PATH};C:/msys64/ucrt64/bin;C:/msys64/usr/bin;D:/Ruby32-x64/bin",
+        "CFLAGS": "${env:CFLAGS} -ID:/Ruby32-x64/include/ruby-3.2.0",
+        "RI_DEVKIT": "C:/msys64/usr/bin",
+        "MSYSTEM": "UCRT64",
+        "PKG_CONFIG_PATH": "C:/msys64/ucrt64/lib/pkgconfig:C:/msys64/ucrt64/share/pkgconfig",
+        "ACLOCAL_PATH": "C:/msys64/ucrt64/aclocal:C:/msys64/usr/share/aclocal",
+        "MANPATH": "C:/msys64/ucrt64/share/man",
+        "MINGW_PACKAGE_PREFIX": "mingw-w64-ucrt-x86_64",
+        "MSYSTEM_PREFIX": "/ucrt64",
+        "MSYSTEM_CARCH": "x86_64",
+        "MSYSTEM_CHOST": "x86_64-w64-mingw32",
+        "MINGW_CHOST": "x86_64-w64-mingw32",
+        "MINGW_PREFIX": "/ucrt64"
+    }
 }

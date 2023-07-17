@@ -1,2 +1,3 @@
 [workspace]
-members = ["ext/libfmod_ext"]
+members = ["ext/libfmod_ext", "libfmod"]
+resolver = "2"
