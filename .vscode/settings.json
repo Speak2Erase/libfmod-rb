@@ -3,7 +3,7 @@
     "rust-analyzer.checkOnSave.command": "clippy",
     "rust-analyzer.server.extraEnv": {
         "PATH": "${env:PATH};C:/msys64/ucrt64/bin;C:/msys64/usr/bin;D:/Ruby32-x64/bin",
-        "CFLAGS": "${env:CFLAGS} -ID:/Ruby32-x64/include/ruby-3.2.0",
+        "BINDGEN_EXTRA_CLANG_ARGS": "-ID:/Ruby32-x64/include/ruby-3.2.0 -ID:/Ruby32-x64/include/ruby-3.2.0/x64-mingw-ucrt",
         "RI_DEVKIT": "C:/msys64/usr/bin",
         "MSYSTEM": "UCRT64",
         "PKG_CONFIG_PATH": "C:/msys64/ucrt64/lib/pkgconfig:C:/msys64/ucrt64/share/pkgconfig",
