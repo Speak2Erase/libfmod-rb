@@ -22,37 +22,59 @@ use crate::{
     transparent_struct,
 };
 
-transparent_struct!(Guid; [data_1: u32, data_2: u16, data_3: u16, data_4: Vec<u8>]);
-
-transparent_struct!(StudioCpuUsage; [update: f32]);
-transparent_struct!(CpuUsage; [dsp: f32, stream: f32, geometry: f32, update: f32, convolution_1: f32, convolution_2: f32]);
-
-transparent_struct!(BufferUsage; [studiocommandqueue: RStruct, studiohandle: RStruct]);
-transparent_struct!(BufferInfo; [currentusage: i32, peakusage: i32, capacity: i32, stallcount: i32, stalltime: f32]);
-
-transparent_struct!(StudioAdvancedSettings; [
-     commandqueuesize: u32,
-     handleinitialsize: u32,
-     studioupdateperiod: i32,
-     idlesampledatapoolsize: i32,
-     streamingscheduledelay: u32,
-     encryptionkey: String
+transparent_struct!(Guid, FMOD_GUID; [
+    Data1, data_1: u32,
+    Data2, data_2: u16,
+    Data3, data_3: u16,
+    Data4, data_4: Vec<u8>
 ]);
 
-transparent_struct!(ParameterId; [
-    data_1: u32,
-    data_2: u32
+transparent_struct!(StudioCpuUsage, FMOD_STUDIO_CPU_USAGE; [update, update: f32]);
+transparent_struct!(CpuUsage, FMOD_CPU_USAGE; [
+    dsp, dsp: f32,
+    stream, stream: f32,
+    geometry, geometry: f32,
+    update, update: f32, convolution1,
+    convolution_1: f32, convolution2,
+    convolution_2: f32
 ]);
 
-transparent_struct!(ParameterDescription; [
-     name: String,
-     id: RStruct,
-     minimum: f32,
-     maximum: f32,
-     defaultvalue: f32,
-     type_: &ParameterType,
-     flags: std::ffi::c_uint,
-     guid: RStruct
+transparent_struct!(BufferUsage, FMOD_STUDIO_BUFFER_USAGE; [
+    studiocommandqueue, studio_command_queue: RStruct,
+    studiohandle, studio_handle: RStruct
+]);
+transparent_struct!(BufferInfo, FMOD_STUDIO_BUFFER_INFO; [
+    currentusage, current_usage: i32,
+    peakusage, peak_usage: i32,
+    capacity, capacity: i32,
+    stallcount, stall_count: i32,
+    stalltime, stall_time: f32
+]);
+
+transparent_struct!(StudioAdvancedSettings, FMOD_STUDIO_ADVANCEDSETTINGS; [
+    cbsize, cb_size: i32,
+    commandqueuesize, command_queue_size: u32,
+    handleinitialsize, handle_initial_size: u32,
+    studioupdateperiod, studio_update_period: i32,
+    idlesampledatapoolsize, idle_sample_data_pool_size: i32,
+    streamingscheduledelay, streaming_schedule_delay: u32,
+    encryptionkey, encryption_key: String
+]);
+
+transparent_struct!(ParameterId, FMOD_STUDIO_PARAMETER_ID; [
+    data1, data_1: u32,
+    data2, data_2: u32
+]);
+
+transparent_struct!(ParameterDescription, FMOD_STUDIO_PARAMETER_DESCRIPTION; [
+     name, name: String,
+     id, id: RStruct,
+     minimum, minimum: f32,
+     maximum, maximum: f32,
+     defaultvalue, default_value: f32,
+     type_, type_: &ParameterType,
+     flags, flags: std::ffi::c_uint,
+     guid, guid: RStruct
 ]);
 
 fn bind_userproperty(module: impl magnus::Module) -> Result<(), magnus::Error> {
@@ -62,36 +84,53 @@ fn bind_userproperty(module: impl magnus::Module) -> Result<(), magnus::Error> {
     )
 }
 
-impl crate::wrap::UnwrapFMOD<libfmod::UserProperty> for RStruct {
-    fn unwrap_fmod(self) -> libfmod::UserProperty {
-        let name = self.aref("name").unwrap();
+// FIXME: this will either segfault or leak memory when using string values. THIS IS BAD.
+impl crate::wrap::UnwrapFMOD<libfmod::FMOD_STUDIO_USER_PROPERTY> for RStruct {
+    fn unwrap_fmod(self) -> libfmod::FMOD_STUDIO_USER_PROPERTY {
+        let name: String = self.aref("name").unwrap();
+        let name = name.as_ptr() as _;
         let type_ = self
             .aref::<_, &crate::enums::UserPropertyType>("type")
             .unwrap()
             .unwrap_fmod();
 
-        let union = match type_ {
-            libfmod::UserPropertyType::Integer => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
-                intvalue: self.aref("data").unwrap(),
-            },
-            libfmod::UserPropertyType::Boolean => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
-                boolvalue: self.aref("data").unwrap(),
-            },
-            libfmod::UserPropertyType::Float => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
-                floatvalue: self.aref("data").unwrap(),
-            },
-            libfmod::UserPropertyType::String => libfmod::ffi::FMOD_STUDIO_USER_PROPERTY_UNION {
-                stringvalue: std::ffi::CString::new(self.aref::<_, String>("data").unwrap())
-                    .unwrap()
-                    .into_raw(),
-            },
+        let __bindgen_anon_1 = match type_ {
+            libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_INTEGER => {
+                libfmod::FMOD_STUDIO_USER_PROPERTY__bindgen_ty_1 {
+                    intvalue: self.aref("data").unwrap(),
+                }
+            }
+            libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_BOOLEAN => {
+                libfmod::FMOD_STUDIO_USER_PROPERTY__bindgen_ty_1 {
+                    boolvalue: self.aref("data").unwrap(),
+                }
+            }
+            libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_FLOAT => {
+                libfmod::FMOD_STUDIO_USER_PROPERTY__bindgen_ty_1 {
+                    floatvalue: self.aref("data").unwrap(),
+                }
+            }
+            libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_STRING => {
+                libfmod::FMOD_STUDIO_USER_PROPERTY__bindgen_ty_1 {
+                    stringvalue: std::ffi::CString::new(self.aref::<_, String>("data").unwrap())
+                        .unwrap()
+                        .into_raw(),
+                }
+            }
+            libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_FORCEINT => {
+                unreachable!()
+            }
         };
 
-        libfmod::UserProperty { name, type_, union }
+        libfmod::FMOD_STUDIO_USER_PROPERTY {
+            name,
+            type_,
+            __bindgen_anon_1,
+        }
     }
 }
 
-impl crate::wrap::WrapFMOD<RStruct> for libfmod::UserProperty {
+impl crate::wrap::WrapFMOD<RStruct> for libfmod::FMOD_STUDIO_USER_PROPERTY {
     fn wrap_fmod(self) -> RStruct {
         use magnus::{Module, RClass, RModule};
 
@@ -103,28 +142,34 @@ impl crate::wrap::WrapFMOD<RStruct> for libfmod::UserProperty {
             .const_get::<_, RClass>("UserProperty")
             .unwrap();
 
-        let name = self.name;
+        let name = unsafe {
+            std::ffi::CStr::from_ptr(self.name)
+                .to_str()
+                .unwrap()
+                .to_string()
+        };
         let type_ = self.type_;
 
         RStruct::from_value(
             rstruct
                 .new_instance((name, type_.wrap_fmod(), unsafe {
                     match type_ {
-                        libfmod::UserPropertyType::Integer => {
-                            magnus::Value::from(self.union.intvalue)
+                        libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_INTEGER => {
+                            magnus::Value::from(self.__bindgen_anon_1.intvalue)
                         }
-                        libfmod::UserPropertyType::Boolean => {
-                            magnus::Value::from(self.union.boolvalue != 0)
+                        libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_BOOLEAN => {
+                            magnus::Value::from(self.__bindgen_anon_1.boolvalue != 0)
                         }
-                        libfmod::UserPropertyType::Float => {
-                            magnus::Value::from(self.union.floatvalue)
+                        libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_FLOAT => {
+                            magnus::Value::from(self.__bindgen_anon_1.floatvalue)
                         }
                         // FIXME: Oh my god this is wildly unsafe
-                        libfmod::UserPropertyType::String => magnus::Value::from(
-                            std::ffi::CStr::from_ptr(self.union.stringvalue)
+                        libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_STRING => magnus::Value::from(
+                            std::ffi::CStr::from_ptr(self.__bindgen_anon_1.stringvalue)
                                 .to_str()
                                 .unwrap(),
                         ),
+                        libfmod::FMOD_STUDIO_USER_PROPERTY_TYPE::FMOD_STUDIO_USER_PROPERTY_TYPE_FORCEINT => unreachable!()
                     }
                 }))
                 .unwrap(),
@@ -133,24 +178,46 @@ impl crate::wrap::WrapFMOD<RStruct> for libfmod::UserProperty {
     }
 }
 
-transparent_struct!(Vector; [x: f32, y: f32, z: f32]);
-transparent_struct!(Attributes3d; [position: RStruct, velocity: RStruct, forward: RStruct, up: RStruct]);
-transparent_struct!(MemoryUsage; [exclusive: i32, inclusive: i32, sampledata: i32]);
-
-transparent_struct!(CommandInfo; [
-    commandname: String,
-    parentcommandindex: i32,
-    framenumber: i32,
-    frametime: f32,
-    instancetype: &InstanceType,
-    outputtype: &InstanceType,
-    instancehandle: u32,
-    outputhandle: u32
+transparent_struct!(Vector, FMOD_VECTOR; [x, x: f32, y, y: f32, z, z: f32]);
+transparent_struct!(Attributes3d, FMOD_3D_ATTRIBUTES; [
+    position, position: RStruct,
+    velocity, velocity: RStruct,
+    forward, forward: RStruct,
+    up, up: RStruct
+]);
+transparent_struct!(MemoryUsage, FMOD_STUDIO_MEMORY_USAGE; [
+    exclusive, exclusive: i32,
+    inclusive, inclusive: i32,
+    sampledata, sample_data: i32
 ]);
 
-transparent_struct!(TimelineMarkerProperties; [name: String, position: i32]);
-transparent_struct!(TimelineBeatProperties; [bar: i32, beat: i32, position: i32, tempo: f32, timesignatureupper: i32, timesignaturelower: i32]);
-transparent_struct!(TimelineNestedBeatProperties; [eventid: RStruct, properties: RStruct]);
+transparent_struct!(CommandInfo, FMOD_STUDIO_COMMAND_INFO; [
+    commandname, command_name: String,
+    parentcommandindex, parent_command_index: i32,
+    framenumber, frame_number: i32,
+    frametime, frame_time: f32,
+    instancetype, instance_type: &InstanceType,
+    outputtype, output_type: &InstanceType,
+    instancehandle, instance_handle: u32,
+    outputhandle, output_handle: u32
+]);
+
+transparent_struct!(TimelineMarkerProperties, FMOD_STUDIO_TIMELINE_MARKER_PROPERTIES; [
+    name, name: String,
+    position, position: i32
+]);
+transparent_struct!(TimelineBeatProperties, FMOD_STUDIO_TIMELINE_BEAT_PROPERTIES; [
+    bar, bar: i32,
+    beat, beat: i32,
+    position, position: i32,
+    tempo, tempo: f32,
+    timesignatureupper, time_signature_upper: i32,
+    timesignaturelower, time_signature_lower: i32
+]);
+transparent_struct!(TimelineNestedBeatProperties, FMOD_STUDIO_TIMELINE_NESTED_BEAT_PROPERTIES; [
+    eventid, event_id: RStruct,
+    properties, properties: RStruct
+]);
 
 pub fn bind(module: impl magnus::Module) -> Result<(), magnus::Error> {
     let module = module.define_module("Struct")?;

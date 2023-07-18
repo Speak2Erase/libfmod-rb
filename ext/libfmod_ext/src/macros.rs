@@ -38,12 +38,10 @@ macro_rules! bindable_enum {
 
         impl $name {
             fn new(e: std::ffi::c_int) -> Result<Self, magnus::Error> {
-                use $crate::wrap::WrapFMOD;
-
                 let error = Err(magnus::Error::new(magnus::exception::arg_error(), format!("invalid variant {e}")));
                 $(
                     if libfmod::$c_name::$c_force_int as std::ffi::c_int == e {
-                        return err
+                        return error
                     }
                 )?
 
@@ -53,7 +51,7 @@ macro_rules! bindable_enum {
                     }
                 )+
 
-                err
+                error
             }
 
             fn rb_to_i(&self) -> std::ffi::c_int {
@@ -185,18 +183,18 @@ macro_rules! bind_fn {
 
 #[macro_export]
 macro_rules! transparent_struct {
-    ($name:ident; [$($member:ident: $type:ty),*]) => {
-        impl $crate::wrap::UnwrapFMOD<libfmod::$name> for magnus::RStruct {
-            fn unwrap_fmod(self) -> libfmod::$name {
-                libfmod::$name {
+    ($name:ident, $c_name:ident; [$($c_member:ident, $member:ident: $type:ty),*]) => {
+        impl $crate::wrap::UnwrapFMOD<libfmod::$c_name> for magnus::RStruct {
+            fn unwrap_fmod(self) -> libfmod::$c_name {
+                libfmod::$c_name {
                     $(
-                        $member: self.aref::<_, $type>(stringify!($member)).unwrap().unwrap_fmod(),
+                        $c_member: self.aref::<_, $type>(stringify!($member)).unwrap().unwrap_fmod(),
                     )*
                 }
             }
         }
 
-        impl $crate::wrap::WrapFMOD<magnus::RStruct> for libfmod::$name {
+        impl $crate::wrap::WrapFMOD<magnus::RStruct> for libfmod::$c_name {
             fn wrap_fmod(self) -> magnus::RStruct {
                 use magnus::{Module, RModule, RClass};
 
@@ -208,7 +206,7 @@ macro_rules! transparent_struct {
                         .unwrap()
                         .const_get::<_, RClass>(stringify!($name))
                         .unwrap()
-                        .new_instance(($( self.$member.wrap_fmod(), )*))
+                        .new_instance(($( self.$c_member.wrap_fmod(), )*))
                         .unwrap()
                 )
                 .unwrap();
@@ -231,19 +229,4 @@ macro_rules! transparent_struct {
         }
 
     };
-}
-
-#[macro_export]
-macro_rules! err_fmod {
-    ($ function : expr , $ code : expr) => {{
-        {
-            use $crate::wrap::WrapFMOD;
-            libfmod::Error::Fmod {
-                function: $function.to_string(),
-                code: $code,
-                message: libfmod::ffi::map_fmod_error($code).to_string(),
-            }
-            .wrap_fmod()
-        }
-    }};
 }

@@ -38,7 +38,7 @@ fn parse_id(path: String) -> Result<magnus::RStruct, magnus::Error> {
                 let id = id.assume_init();
                 Ok(id.wrap_fmod())
             }
-            error => Err(err_fmod!("FMOD_Studio_System_LookupID", error)),
+            error => Err(error.wrap_fmod()),
         }
     }
 }
@@ -69,8 +69,7 @@ fn init() -> Result<(), magnus::Error> {
     core::system::bind(core)?;
 
     unsafe {
-        let callback_thread =
-            magnus::Value::from_raw(spawn_rb_thread(callback::callback_thread, ()));
+        let callback_thread = magnus::Value::from_raw(spawn_rb_thread(callback::callback_thread));
 
         top.const_set("EventThread", callback_thread)?;
     }

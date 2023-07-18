@@ -42,25 +42,23 @@ fn add_callback(callback: BoxedCallback) {
 }
 
 // Unsafety galore!
-pub fn callback_thread(_: ()) -> u64 {
+pub fn callback_thread() -> u64 {
     loop {
         let callback = unsafe {
             without_gvl(
-                |_| {
+                || {
                     #[cfg(feature = "track-callbacks")]
                     println!("Waiting for a callback to run...");
 
                     CHANNEL.1.recv().unwrap()
                 },
-                (),
-                |_| {
+                || {
                     #[cfg(feature = "track-callbacks")]
                     println!("Aborting callback thread...");
 
                     // Send a `None` to let notify that we're aborting.
                     CHANNEL.0.send(None).unwrap();
                 },
-                (),
             )
         };
 
@@ -78,18 +76,15 @@ pub fn callback_thread(_: ()) -> u64 {
             unsafe {
                 // This function handles passing the callback over the ffi boundary.
                 // It boxes it...
-                spawn_rb_thread(
-                    |callback| {
-                        #[cfg(feature = "track-callbacks")]
-                        println!("Attempting ro run callback...");
-                        // ..Then we call it.
-                        callback.call();
-                        // The callback should be dropped and we don't have to worry about a memory leak. Hooray!
+                spawn_rb_thread(move || {
+                    #[cfg(feature = "track-callbacks")]
+                    println!("Attempting ro run callback...");
+                    // ..Then we call it.
+                    callback.call();
+                    // The callback should be dropped and we don't have to worry about a memory leak. Hooray!
 
-                        rb_sys::Qnil.into()
-                    },
-                    callback,
-                );
+                    rb_sys::Qnil.into()
+                });
             }
         } else {
             println!("Callback EventThread termination requested");
