@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "D:/Program Files (x86)/FMOD SoundSystem/FMOD Studio API Windows/api/core/inc",
+                "D:/Program Files (x86)/FMOD SoundSystem/FMOD Studio API Windows/api/studio/inc",
+                "D:/Program Files (x86)/FMOD SoundSystem/FMOD Studio API Windows/api/fsbank/inc"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ]
+        }
+    ],
+    "version": 4
+}

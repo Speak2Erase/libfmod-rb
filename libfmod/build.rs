@@ -65,6 +65,7 @@ fn main() {
         .clang_arg(format!("-I{api_dir}/core/inc"))
         .clang_arg(format!("-I{api_dir}/studio/inc"))
         .clang_arg(format!("-I{api_dir}/fsbank/inc"))
+        .rustified_enum("FMOD_.*")
         .header("src/wrapper.h");
 
     #[cfg(target_arch = "x86")]

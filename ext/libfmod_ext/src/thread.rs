@@ -19,28 +19,25 @@ use std::ffi::c_void;
 
 // Type safe wrapper around rb_thread_call_without_gvl.
 // This function is still very unsafe and should be used sparingly.
-pub unsafe fn without_gvl_no_ubf<Func, FuncArgs, FuncReturn>(
-    func: Func,
-    func_args: FuncArgs,
-) -> FuncReturn
+pub unsafe fn without_gvl_no_ubf<Func, FuncReturn>(func: Func) -> FuncReturn
 where
-    Func: FnMut(FuncArgs) -> FuncReturn,
+    Func: FnMut() -> FuncReturn,
 {
-    unsafe extern "C" fn anon_func<Func, FuncArgs, FuncReturn>(data: *mut c_void) -> *mut c_void
+    unsafe extern "C" fn anon_func<Func, FuncReturn>(data: *mut c_void) -> *mut c_void
     where
-        Func: FnMut(FuncArgs) -> FuncReturn,
+        Func: FnMut() -> FuncReturn,
     {
-        let (mut func, func_args): (Func, FuncArgs) = *Box::from_raw(data as *mut (Func, FuncArgs));
+        let mut func: Func = *Box::from_raw(data as *mut Func);
 
-        Box::into_raw(Box::new(func(func_args))) as *mut _
+        Box::into_raw(Box::new(func())) as *mut _
     }
 
     //? SAFETY: We box the function and args to pass them over the FFI boundary.
-    let boxed_args = Box::new((func, func_args));
+    let boxed_func = Box::new(func);
 
     let result = rb_sys::rb_thread_call_without_gvl(
-        Some(anon_func::<Func, FuncArgs, FuncReturn>),
-        Box::into_raw(boxed_args) as *mut _,
+        Some(anon_func::<Func, FuncReturn>),
+        Box::into_raw(boxed_func) as *mut _,
         None,
         std::ptr::null_mut(),
     );
@@ -50,43 +47,38 @@ where
 
 // Type safe wrapper around rb_thread_call_without_gvl. Takes in a unblocking function.
 // This function is still very unsafe and should be used sparingly.
-pub unsafe fn without_gvl<Func, FuncArgs, FuncReturn, Unblock, UnblockArgs>(
-    func: Func,
-    func_args: FuncArgs,
-    unblock: Unblock,
-    unblock_args: UnblockArgs,
-) -> FuncReturn
+pub unsafe fn without_gvl<Func, FuncReturn, Unblock>(func: Func, unblock: Unblock) -> FuncReturn
 where
-    Func: FnMut(FuncArgs) -> FuncReturn,
-    Unblock: FnMut(UnblockArgs),
+    Func: FnMut() -> FuncReturn,
+    Unblock: FnMut(),
 {
-    unsafe extern "C" fn anon_func<Func, FuncArgs, FuncReturn>(data: *mut c_void) -> *mut c_void
+    unsafe extern "C" fn anon_func<Func, FuncReturn>(data: *mut c_void) -> *mut c_void
     where
-        Func: FnMut(FuncArgs) -> FuncReturn,
+        Func: FnMut() -> FuncReturn,
     {
-        let (mut func, func_args): (Func, FuncArgs) = *Box::from_raw(data as _);
+        let mut func: Func = *Box::from_raw(data as _);
 
-        Box::into_raw(Box::new(func(func_args))) as _
+        Box::into_raw(Box::new(func())) as _
     }
 
-    unsafe extern "C" fn anon_unblock<Unblock, UnblockArgs>(data: *mut c_void)
+    unsafe extern "C" fn anon_unblock<Unblock>(data: *mut c_void)
     where
-        Unblock: FnMut(UnblockArgs),
+        Unblock: FnMut(),
     {
-        let (mut func, func_args): (Unblock, UnblockArgs) = *Box::from_raw(data as _);
+        let mut func: Unblock = *Box::from_raw(data as _);
 
-        func(func_args);
+        func();
     }
 
     //? SAFETY: We box the function and args to pass them over the FFI boundary.
-    let boxed_args = Box::new((func, func_args));
-    let boxed_unblock_args = Box::new((unblock, unblock_args));
+    let boxed_func = Box::new(func);
+    let boxed_unblock_func = Box::new(unblock);
 
     let result = rb_sys::rb_thread_call_without_gvl(
-        Some(anon_func::<Func, FuncArgs, FuncReturn>),
-        Box::into_raw(boxed_args) as *mut _,
-        Some(anon_unblock::<Unblock, UnblockArgs>),
-        Box::into_raw(boxed_unblock_args) as *mut _,
+        Some(anon_func::<Func, FuncReturn>),
+        Box::into_raw(boxed_func) as *mut _,
+        Some(anon_unblock::<Unblock>),
+        Box::into_raw(boxed_unblock_func) as *mut _,
     );
 
     *Box::from_raw(result as _)
@@ -94,20 +86,20 @@ where
 
 // Type safe wrapper around rb_thread_create.
 // This function is still very unsafe and should be used sparingly.
-pub unsafe fn spawn_rb_thread<Func, FuncArgs>(func: Func, func_args: FuncArgs) -> u64
+pub unsafe fn spawn_rb_thread<Func>(func: Func) -> u64
 where
-    Func: FnMut(FuncArgs) -> u64,
+    Func: FnMut() -> u64 + 'static,
 {
-    unsafe extern "C" fn anon<Func, FuncArgs>(data: *mut c_void) -> u64
+    unsafe extern "C" fn anon<Func>(data: *mut c_void) -> u64
     where
-        Func: FnMut(FuncArgs) -> u64,
+        Func: FnMut() -> u64 + 'static,
     {
-        let (mut func, func_args): (Func, FuncArgs) = *Box::from_raw(data as _);
+        let mut func: Func = *Box::from_raw(data as _);
 
-        func(func_args)
+        func()
     }
 
-    let boxed_args = Box::new((func, func_args));
+    let boxed_func = Box::new(func);
 
-    rb_sys::rb_thread_create(Some(anon::<Func, FuncArgs>), Box::into_raw(boxed_args) as _)
+    rb_sys::rb_thread_create(Some(anon::<Func>), Box::into_raw(boxed_func) as _)
 }

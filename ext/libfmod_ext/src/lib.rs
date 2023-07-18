@@ -29,11 +29,15 @@ mod macros;
 fn parse_id(path: String) -> Result<magnus::RStruct, magnus::Error> {
     unsafe {
         use crate::wrap::WrapFMOD;
+        use std::mem::MaybeUninit;
 
-        let mut id = libfmod::ffi::FMOD_GUID::default();
+        let mut id = MaybeUninit::uninit();
         let path = std::ffi::CString::new(path).unwrap();
-        match libfmod::ffi::FMOD_Studio_ParseID(path.as_ptr(), &mut id) {
-            libfmod::ffi::FMOD_OK => Ok(libfmod::Guid::try_from(id).unwrap().wrap_fmod()),
+        match libfmod::FMOD_Studio_ParseID(path.as_ptr(), id.as_mut_ptr()) {
+            libfmod::FMOD_RESULT::FMOD_OK => {
+                let id = id.assume_init();
+                Ok(id.wrap_fmod())
+            }
             error => Err(err_fmod!("FMOD_Studio_System_LookupID", error)),
         }
     }

@@ -17,21 +17,21 @@
 
 #[macro_export]
 macro_rules! bindable_enum {
-    ($name:ident, $($element:ident),+) => {
+    ($name:ident, $c_name:ident $(, force_int $c_force_int:ident)?; $($element:ident, $c_element:ident),+) => {
         paste::paste! {
             #[magnus::wrap(class = "FMOD::Enum::" $name "", free_immediatly, size)]
             #[derive(Clone, Copy, PartialEq)]
-            pub(crate) struct $name(libfmod::$name);
+            pub(crate) struct $name(libfmod::$c_name);
         }
 
-        impl From<$name> for libfmod::$name {
+        impl From<$name> for libfmod::$c_name {
             fn from(value: $name) -> Self {
                 value.0
             }
         }
 
-        impl From<libfmod::$name> for $name {
-            fn from(value: libfmod::$name) -> Self {
+        impl From<libfmod::$c_name> for $name {
+            fn from(value: libfmod::$c_name) -> Self {
                 Self(value)
             }
         }
@@ -39,11 +39,25 @@ macro_rules! bindable_enum {
         impl $name {
             fn new(e: std::ffi::c_int) -> Result<Self, magnus::Error> {
                 use $crate::wrap::WrapFMOD;
-                libfmod::$name::from(e).map(|e| Self(e)).map_err(|e| e.wrap_fmod())
+
+                let error = Err(magnus::Error::new(magnus::exception::arg_error(), format!("invalid variant {e}")));
+                $(
+                    if libfmod::$c_name::$c_force_int as std::ffi::c_int == e {
+                        return err
+                    }
+                )?
+
+                $(
+                    if libfmod::$c_name::$c_element as std::ffi::c_int == e {
+                        return Ok(Self(unsafe { std::mem::transmute(e) }))
+                    }
+                )+
+
+                err
             }
 
             fn rb_to_i(&self) -> std::ffi::c_int {
-                From::from(self.0)
+                self.0 as _
             }
 
             fn rb_to_string(&self) -> String {
@@ -55,9 +69,11 @@ macro_rules! bindable_enum {
                 use magnus::Module;
 
                 let class = module.define_class(stringify!($name), Default::default())?;
-                $(
-                    class.const_set(stringify!($element), $name(libfmod::$name::$element))?;
-                )+
+                paste::paste! {
+                    $(
+                        class.const_set(stringify!($element), $name(libfmod::$c_name::$c_element))?;
+                    )+
+                }
                 class.define_method("to_s", magnus::method!($name::rb_to_string, 0))?;
                 class.define_method("inspect", magnus::method!($name::rb_to_string, 0))?;
                 class.define_method("==", magnus::method!($name::eq, 1))?;
@@ -68,14 +84,14 @@ macro_rules! bindable_enum {
             }
         }
 
-        impl $crate::wrap::WrapFMOD<$name> for libfmod::$name {
+        impl $crate::wrap::WrapFMOD<$name> for libfmod::$c_name {
             fn wrap_fmod(self) -> $name {
                 $name(self)
             }
         }
 
-        impl $crate::wrap::UnwrapFMOD<libfmod::$name> for $name {
-            fn unwrap_fmod(self) -> libfmod::$name {
+        impl $crate::wrap::UnwrapFMOD<libfmod::$c_name> for $name {
+            fn unwrap_fmod(self) -> libfmod::$c_name {
                 self.0
             }
         }
